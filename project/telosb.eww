@@ -2,7 +2,7 @@
 
 <workspace>
   <project>
-    <path>$WS_DIR$\00std_eui64_uart\00std_eui64_uart.ewp</path>
+    <path>$WS_DIR$\draughts\draughts.ewp</path>
   </project>
   <batchBuild/>
 </workspace>

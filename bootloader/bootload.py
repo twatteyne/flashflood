@@ -35,12 +35,19 @@ def findSerialPorts():
                         serialports.append( (str(val[1])) )
     
     return serialports
+    
+def usage():
+    print '=== example : \n'
+    print '    bootload.py --image=<image>\n'
+    print '=== Or just type download bootload.py using image: flashflood\project\draughts\Debug\Exe\draughts.hex \n'
+    
 
 # =========================== main ============================================
 def main():
     
     # get options
     cmd,start,end = None, None, None
+    image = None
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'i:', ['image='])
     except getopt.GetoptError:
@@ -54,13 +61,11 @@ def main():
         elif opt in ('-i', '--image'):
             image = arg
         else:
-            usage()
             sys.exit(2)
         
     # check valid fo options
     if image == None:
-        usage()
-        sys.exit(2)       
+        image = "..\project\draughts\Debug\Exe\draughts.a43" 
     
     for port in findSerialPorts():
         subprocess.Popen("python bsl --telosb -c {0} -r -e -I -p {1}".format(port,image))
