@@ -736,7 +736,7 @@
         </option>
         <option>
           <name>XclFile</name>
-          <state>$TOOLKIT_DIR$\CONFIG\lnk430.xcl</state>
+          <state>$TOOLKIT_DIR$\CONFIG\lnk430F1611.xcl</state>
         </option>
         <option>
           <name>XclFileSlave</name>
@@ -852,11 +852,11 @@
         </option>
         <option>
           <name>AllowExtraOutput</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>GenerateExtraOutput</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>XExtraOutOverride</name>
@@ -2023,6 +2023,18 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\drivers\cc2420\cc2420.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\board\debugpins.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\board\debugpins.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\board\leds.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\board\leds.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\drivers\cc2420\radio.c</name>
