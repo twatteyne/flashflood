@@ -4,6 +4,9 @@
   <project>
     <path>$WS_DIR$\draughts\draughts.ewp</path>
   </project>
+  <project>
+    <path>$WS_DIR$\ft_autoack\ft_autoack.ewp</path>
+  </project>
   <batchBuild/>
 </workspace>
 

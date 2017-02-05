@@ -81,11 +81,11 @@ void radio_reset(void) {
    
    // disable address recognition
    cc2420_MDMCTRL0_reg.PREAMBLE_LENGTH      = 2; // 3 leading zero's (IEEE802.15.4 compliant)
-   cc2420_MDMCTRL0_reg.AUTOACK              = 0;
-   cc2420_MDMCTRL0_reg.AUTOCRC              = 1;
+   cc2420_MDMCTRL0_reg.AUTOACK              = 1; // turn on auto ack
+   cc2420_MDMCTRL0_reg.AUTOCRC              = 1; // turn on auto crc
    cc2420_MDMCTRL0_reg.CCA_MODE             = 3;
    cc2420_MDMCTRL0_reg.CCA_HYST             = 2;
-   cc2420_MDMCTRL0_reg.ADR_DECODE           = 0; // turn OFF address recognition
+   cc2420_MDMCTRL0_reg.ADR_DECODE           = 1; // turn On address recognition
    cc2420_MDMCTRL0_reg.PAN_COORDINATOR      = 0;
    cc2420_MDMCTRL0_reg.RESERVED_FRAME_MODE  = 1; // accept all frame types
    cc2420_MDMCTRL0_reg.reserved_w0          = 0;
