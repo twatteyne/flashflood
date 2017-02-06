@@ -7,7 +7,7 @@
 #include "leds.h"
 //=========================== define ==========================================
 
-#define CHANNEL               11
+#define CHANNEL               26
 #define SENDING_PERIOD        32768 // 32768@32kHz = 1 second
 
 #define FRAME_CONTROL_BYTE0   0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
@@ -102,17 +102,17 @@ int main(void) {
                        8);
     
     radio_rxEnable();
+    radio_rxNow();
     
     while(1){
         if (app_vars.okToSend){
             app_vars.okToSend=0;
+            cc2420_spiStrobe(CC2420_SFLUSHRX, &cc2420_status);
             radio_rfOff();
             ft_autoack_loadPacket();
             radio_loadPacket(&app_vars.packet[0],FRAME_LENGTH);
             radio_txEnable();
             radio_txNow();
-        } else {
-            radio_rxEnable();
         }
     }
     
@@ -122,6 +122,7 @@ int main(void) {
 
 void     cb_radioTimerOverflows(void){
     app_vars.okToSend = 1;
+    debugpins_slot_toggle();
     leds_error_toggle();
 }
 
