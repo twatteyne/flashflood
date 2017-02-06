@@ -40,7 +40,7 @@ void     cb_radioTimerCompare(void);
 void     cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp);
 void     cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp);
 
-void     fr_autoack_loadPacket();
+void     ft_autoack_loadPacket();
 
 //=========================== main ============================================
 
@@ -107,7 +107,7 @@ int main(void) {
         if (app_vars.okToSend){
             app_vars.okToSend=0;
             radio_rfOff();
-            fr_autoack_loadPacket();
+            ft_autoack_loadPacket();
             radio_loadPacket(&app_vars.packet[0],FRAME_LENGTH);
             radio_txEnable();
             radio_txNow();
@@ -137,7 +137,7 @@ void     cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
     leds_sync_toggle();
 }
 
-void     fr_autoack_loadPacket(){
+void     ft_autoack_loadPacket(){
     app_vars.packet[0] = FRAME_CONTROL_BYTE0; // fcf byte0
     app_vars.packet[1] = FRAME_CONTROL_BYTE1; // fcf byte1
     app_vars.packet[2] = app_vars.dsn;        // dsn
