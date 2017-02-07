@@ -38,11 +38,6 @@ to this board.
 #define PORT_RADIOTIMER_WIDTH               uint16_t
 
 #define PORT_SIGNED_INT_WIDTH               int16_t
-#define PORT_TICS_PER_MS                    33
-
-// on TelosB, we use the comparatorA interrupt for the OS
-#define SCHEDULER_WAKEUP()                  CACTL1 |= CAIFG
-#define SCHEDULER_ENABLE_INTERRUPT()        CACTL1  = CAIE
 
 //===== pins
 
@@ -56,30 +51,12 @@ to this board.
 //===== IEEE802154E timing
 
 // time-slot related
-#define PORT_TsSlotDuration                 492   // counter counts one extra count, see datasheet
-
-// execution speed related
-#define PORT_maxTxDataPrepare               100    //  2899us (measured 2420us)
-#define PORT_maxRxAckPrepare                20    //   610us (measured  474us)
-#define PORT_maxRxDataPrepare               33    //  1000us (measured  477us)
-#define PORT_maxTxAckPrepare                40    //   792us (measured  746us)- cannot be bigger than 28.. is the limit for telosb as actvitiy_rt5 is executed almost there.
+#define PORT_TsSlotDuration                 25000   // 5ms@5MHz
 
 // radio speed related
-#define PORT_delayTx                        12    //   366us (measured  352us)
-#define PORT_delayRx                        0     //     0us (can not measure)
+#define PORT_delayTx                        1760    // 366us (measured  352us)@5MHz
+#define PORT_delayRx                        0       //     0us (can not measure)
 
-//===== adaptive_sync accuracy
-
-#define SYNC_ACCURACY                       1     // ticks
-
-//=========================== variables =======================================
-
-// The variables below are used by CoAP's registration engine.
-
-static const uint8_t rreg_uriquery[]        = "h=ucb";
-static const uint8_t infoBoardname[]        = "TelosB";
-static const uint8_t infouCName[]           = "MSP430f1611";
-static const uint8_t infoRadioName[]        = "CC2420";
 
 //=========================== prototypes ======================================
 

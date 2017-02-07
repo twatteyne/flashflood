@@ -41,7 +41,7 @@ void bsp_timer_init() {
    TACCTL0              =  0;
    
    //start TimerA
-   TACTL                =  MC_2+TASSEL_2;        // continuous mode, from SMCLK @4.9MHz typically
+   TACTL                =  MC_2+TASSEL_1;        // continuous mode, from ACLK
 }
 
 /**

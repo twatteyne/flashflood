@@ -75,7 +75,7 @@ void radiotimer_start(PORT_RADIOTIMER_WIDTH period) {
    
    // start counting
    TBCTL    =  TBIE+TBCLR;                       // interrupt when counter resets
-   TBCTL   |=  MC_1+TBSSEL_1;                    // up mode, clocked from ACLK
+   TBCTL   |=  MC_1+TBSSEL_2;                    // up mode, clocked from SMCLK 4.9MHz typicallys
 }
 
 //===== direct access

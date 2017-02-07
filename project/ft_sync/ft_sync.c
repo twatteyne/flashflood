@@ -25,21 +25,21 @@
 #define BSP_TIMER_PERIOD                  10000
 
 //==== mote who send initial data packet and mote the packet is going to deliver to
-#define SOURCE_ID                          0xdd
+#define SOURCE_ID                          0x57
 #define DESTINATION_ID                     0x5e
 
 
 //==== timing @ 32kHz
-#define TxOffset                             33 // 33@32kHz ~ 1000us
-#define TxGuardTime                           5 // 150us
-#define TxAckOffset                          55 // 22@32kHz ~ 670us from Tx to Ack send out, so 22+TxOffset
-#define RxAckTimeout                         20 // measure 12tickes@32kHz ~ 349us from endOfframe to receiving ack
-#define RxDataTimeout                        20 // packet sent require 320us  ~ 11ticks@32kHz
+#define TxOffset                           5000 // 5000 @5MHz ~ 1000us
+#define TxGuardTime                         750 // 750 @5MHz ~ 150us
+#define TxAckOffset                        8350 // 3350 @5MHz ~ 670us from Tx to Ack send out, so 3350+TxOffset
+#define RxAckTimeout                       1750 // measure 12tickes@32kHz ~ 349us from endOfframe to receiving ack
+#define RxDataTimeout                      1600 // packet sent require 320us  ~ 11ticks@32kHz
 
-#define RxCalibrationDelay                   11 // 12 symbals period + spi r/w to read status
+#define RxCalibrationDelay                 1555 // 12 symbals period + spi r/w to read status, 311us
 //==== sync
 
-#define RESYNCHRONIZATIONGUARD                5
+#define RESYNCHRONIZATIONGUARD              750 
 
 //=========================== variables =======================================
 
@@ -276,12 +276,12 @@ void radiotimer_cb_compare(void) {
         app_vars.app_state = S_RXACKPREPARE;
         radiotimer_cancel();
         radio_rfOff();
-        radiotimer_schedule(TxAckOffset-TxGuardTime);
+        radiotimer_schedule(TxAckOffset-TxGuardTime-RxCalibrationDelay);
         app_vars.app_state = S_RXACKREADY;
         break;
     case S_RXACKREADY:
         app_vars.app_state = S_RXACKLISTEN;
-        radiotimer_schedule(TxOffset+2*TxGuardTime);
+        radiotimer_schedule(TxAckOffset+TxGuardTime);
         radio_rxNow();
         break;
     case S_RXACKLISTEN:
