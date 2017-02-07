@@ -13,6 +13,7 @@
 typedef struct {
    radiotimer_compare_cbt    overflowCb;
    radiotimer_compare_cbt    compareCb;
+   radiotimer_compare_cbt    compare4syncCb;
    radiotimer_capture_cbt    startFrameCb;
    radiotimer_capture_cbt    endFrameCb;
    uint8_t                   f_SFDreceived;
@@ -39,6 +40,10 @@ void radiotimer_setCompareCb(radiotimer_compare_cbt cb) {
    radiotimer_vars.compareCb      = cb;
 }
 
+void radiotimer_setCompare4syncCb(radiotimer_compare_cbt cb) {
+   radiotimer_vars.compare4syncCb = cb;
+}
+
 void radiotimer_setStartFrameCb(radiotimer_capture_cbt cb) {
    radiotimer_vars.startFrameCb   = cb;
 }
@@ -63,6 +68,10 @@ void radiotimer_start(PORT_RADIOTIMER_WIDTH period) {
    // CCR2 in compare mode (disabled for now)
    TBCCTL2  =  0;
    TBCCR2   =  0;
+   
+   // CCR3 in compare mode (disabled for now)
+   TBCCTL3  =  0;
+   TBCCR3   =  0;
    
    // start counting
    TBCTL    =  TBIE+TBCLR;                       // interrupt when counter resets
@@ -99,6 +108,23 @@ void radiotimer_cancel() {
    
    // disable compare interrupt
    TBCCTL2 &= ~CCIE;
+}
+
+//==== compare for sync
+void radiotimer_sync_schedule(PORT_RADIOTIMER_WIDTH offset) {
+   // offset when to fire
+   TBCCR3   =  offset;
+   
+   // enable compare interrupt (this also cancels any pending interrupts)
+   TBCCTL3  =  CCIE;
+}
+
+void radiotimer_sync_cancel() {
+   // reset compare value (also resets interrupt flag)
+   TBCCR3   =  0;
+   
+   // disable compare interrupt
+   TBCCTL3 &= ~CCIE;
 }
 
 //===== capture
@@ -164,6 +190,11 @@ kick_scheduler_t radiotimer_isr() {
          }
          break;
       case 0x0006: // CCR3 fires
+         if (radiotimer_vars.compare4syncCb!=NULL) {
+            radiotimer_vars.compare4syncCb();
+            // kick the OS
+            return KICK_SCHEDULER;
+         }
          break;
       case 0x0008: // CCR4 fires
          break;
