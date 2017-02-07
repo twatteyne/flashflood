@@ -65,7 +65,7 @@ def main():
         
     # check valid fo options
     if image == None:
-        image = "..\project\draughts\Debug\Exe\draughts.a43" 
+        image = "..\project\ft_autoack\Debug\Exe\ft_autoack.a43" 
     
     for port in findSerialPorts():
         subprocess.Popen("python bsl --telosb -c {0} -r -e -I -p {1}".format(port,image))

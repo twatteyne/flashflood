@@ -217,17 +217,22 @@ int main(void) {
         cc2420_spiStrobe(CC2420_SNOP, &app_vars.cc2420_status);
     }
     
+    ft_autoack_loadPacket();
+    
     // ==== main function
     while(1){
         if (app_vars.okToSend){
             app_vars.okToSend=0;
+            P2OUT ^=  0x08;     // debugpins_fsm_toggle
+            // fill the packet
+            app_vars.packet[2] = app_vars.dsn;        // dsn
+            app_vars.dsn++;
             cc2420_spiStrobe(CC2420_SFLUSHRX, &app_vars.cc2420_status);
             cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
-            // fill the packet
-            ft_autoack_loadPacket();
             // load packet
             cc2420_spiStrobe(CC2420_SFLUSHTX, &app_vars.cc2420_status);
             cc2420_spiWriteFifo(&app_vars.cc2420_status, &app_vars.packet[0], FRAME_LENGTH, CC2420_TXFIFO_ADDR);
+            P2OUT ^=  0x08;     // debugpins_fsm_toggle
             // tx now
             cc2420_spiStrobe(CC2420_STXON, &app_vars.cc2420_status);
         }
