@@ -172,7 +172,7 @@ int main(void) {
     // ==== turn on crystal oscillator
     cc2420_spiStrobe(CC2420_SXOSCON, &app_vars.cc2420_status);
     while (app_vars.cc2420_status.xosc16m_stable==0) {
-    cc2420_spiStrobe(CC2420_SNOP, &app_vars.cc2420_status);
+        cc2420_spiStrobe(CC2420_SNOP, &app_vars.cc2420_status);
     }
     
     // ==== set frequency 
