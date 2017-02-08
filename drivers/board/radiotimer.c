@@ -110,23 +110,6 @@ void radiotimer_cancel() {
    TBCCTL2 &= ~CCIE;
 }
 
-//==== compare for sync
-void radiotimer_sync_schedule(PORT_RADIOTIMER_WIDTH offset) {
-   // offset when to fire
-   TBCCR3   =  offset;
-   
-   // enable compare interrupt (this also cancels any pending interrupts)
-   TBCCTL3  =  CCIE;
-}
-
-void radiotimer_sync_cancel() {
-   // reset compare value (also resets interrupt flag)
-   TBCCR3   =  0;
-   
-   // disable compare interrupt
-   TBCCTL3 &= ~CCIE;
-}
-
 //===== capture
 
 inline PORT_RADIOTIMER_WIDTH radiotimer_getCapturedTime() {
@@ -190,11 +173,6 @@ kick_scheduler_t radiotimer_isr() {
          }
          break;
       case 0x0006: // CCR3 fires
-         if (radiotimer_vars.compare4syncCb!=NULL) {
-            radiotimer_vars.compare4syncCb();
-            // kick the OS
-            return KICK_SCHEDULER;
-         }
          break;
       case 0x0008: // CCR4 fires
          break;
