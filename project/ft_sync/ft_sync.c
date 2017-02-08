@@ -104,7 +104,8 @@ typedef struct {
     bool                f_SFDreceived;
     cc2420_status_t     cc2420_status;
     uint8_t             packet[FRAME_LENGTH];
-    uint16_t            timeReceived;
+    uint16_t            timeReceivedData;
+    uint16_t            timeReceivedAck;
     uint8_t             lastDsn;
     asn_t               asn;
     
@@ -373,12 +374,12 @@ void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp){
         app_vars.app_state  = S_TXDATA;
         break;
     case S_RXDATALISTEN:
-        app_vars.timeReceived = timestamp;
+        app_vars.timeReceivedData = timestamp;
         app_vars.app_state    = S_RXDATA;
         radiotimer_schedule(timestamp+RxDataTimeout);
         break;
     case S_RXACKLISTEN:
-        app_vars.timeReceived = timestamp;
+        app_vars.timeReceivedAck = timestamp;
         app_vars.app_state    = S_RXACK;
         radiotimer_schedule(timestamp+RxAckTimeout);
         break;
@@ -396,16 +397,47 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
     uint8_t packet_len;
     switch (app_vars.app_state){
     case S_RXACK:
+    case S_TXACK:
+        // this may be end of txack or rxack
+      
         // schedule the packet at next slot if ack has new dsn insdie
         // if not needed, cancel it later
         radiotimer_schedule(app_vars.internalValue-(TBCCR0-timestamp));
-        radio_rfOff();
+        // check received packet
+        memset(&app_vars.packet,0,sizeof(app_vars.packet));
+        // get packet from radio
+        radio_getReceivedFrame(
+            app_vars.packet,
+            &packet_len,
+            sizeof(app_vars.packet),
+            &app_vars.rxpk_rssi,
+            &app_vars.rxpk_lqi,
+            &app_vars.rxpk_crc
+        );
+        if (packet_len==5){
+            // this is Ack
+            radio_rfOff();
+        } else {
+            // this is data
+            if (app_vars.cycleId != app_vars.packet[3]){
+                app_vars.app_state = S_RXDATALISTEN;
+                return;
+            }
+        }
         if (app_vars.isSrc==0){
-            app_vars.packetScheduled = 1;
+            if (packet_len==5){
+                app_vars.packetScheduled = 1;
+            }
             if (app_vars.isSync==0){
-                synchronizePacket(app_vars.timeReceived,TxAckOffset);
                 // update last dsn 
-                app_vars.lastDsn = app_vars.packet[2];
+                app_vars.lastDsn = app_vars.packet[2];  
+                if (packet_len==5){
+                    synchronizePacket(app_vars.timeReceivedAck,TxAckOffset);
+                } else {
+                    synchronizePacket(app_vars.timeReceivedData,TxOffset);
+                    // no need to schedule data
+                    endSlot();
+                }
             } else {
                 // check whether this is first time heard the packet depending on dsn
                 if (
@@ -417,10 +449,21 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
                       app_vars.lastDsn - app_vars.packet[2] > 0xf7 // in case I lost few packets previous
                     )
                 ){
-                    // synchronization
-                    synchronizePacket(app_vars.timeReceived,TxAckOffset);
                     // update last dsn
                     app_vars.lastDsn = app_vars.packet[2];
+                    if (packet_len==5){
+                        // synchronization
+                        synchronizePacket(app_vars.timeReceivedAck,TxAckOffset);
+                    } else {
+                        // synchronization
+                        synchronizePacket(app_vars.timeReceivedData,TxOffset);
+                        // no need to schedule data packet
+                        endSlot();
+                    }
+                } else {
+                    // this is packet I heared or already relayed
+                    app_vars.packetScheduled = 0;
+                    endSlot();
                 }
             }
         } else {
@@ -435,48 +478,11 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
         break;
     case S_RXDATA:
         radiotimer_cancel();
-        // expected an ACK will be sent automatically
+        // expected an ACK will be sent automatically, however, if this is not
+        // valid data for me, I will disregard packet and searching for another,
+        // which probably will be an Ack later. Use TxACKDELAY state here, 
+        // after end of frame, i will check depending on received frame. 
         app_vars.app_state = S_TXACKDELAY;
-        break;
-    case S_TXACK:
-        packet_len = FRAME_LENGTH;
-        memset(&app_vars.packet,0,sizeof(app_vars.packet));
-        // get packet from radio
-        radio_getReceivedFrame(
-            app_vars.packet,
-            &packet_len,
-            sizeof(app_vars.packet),
-            &app_vars.rxpk_rssi,
-            &app_vars.rxpk_lqi,
-            &app_vars.rxpk_crc
-        );
-        if (app_vars.cycleId != app_vars.packet[3]){
-            app_vars.app_state = S_RXDATALISTEN;
-            return;
-        }
-        if (app_vars.isSync==0){
-            // synchronization
-            synchronizePacket(app_vars.timeReceived,TxOffset);
-            // update last dsn 
-            app_vars.lastDsn = app_vars.packet[2];
-        } else {
-            // check whether this is first time heard the packet depending on dsn
-            if (
-                (
-                  (app_vars.packet[2]>app_vars.lastDsn)
-                ) ||
-                (
-                  app_vars.packet[2] < app_vars.lastDsn &&
-                  app_vars.lastDsn - app_vars.packet[2] > 0xf7 // in case I lost few packets previous
-                )
-            ){
-                // synchronization
-                synchronizePacket(app_vars.timeReceived,TxOffset);
-                // update last dsn
-                app_vars.lastDsn = app_vars.packet[2];
-            }
-        }
-        endSlot();
         break;
     default:
         // indicate error and endof slot
@@ -538,6 +544,17 @@ void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived, PORT_RADIOTIMER_WIDTH
     leds_sync_on();
 }
 void endSlot(){
+    memset(&app_vars.packet,0,sizeof(app_vars.packet));
+    // fill packet
+    app_vars.packet[0] = FRAME_CONTROL_BYTE0; // fcf byte0
+    app_vars.packet[1] = FRAME_CONTROL_BYTE1; // fcf byte1
+//        app_vars.packet[2] = app_vars.lastDsn;    // fill it at beginning of each slot
+    app_vars.packet[3] = app_vars.cycleId;
+    app_vars.packet[4] = app_vars.cycleId;
+    app_vars.packet[5] = app_vars.cycleId;
+    app_vars.packet[6] = app_vars.cycleId;
+    app_vars.packet[7] = 0x00;                
+    app_vars.packet[8] = 0x00;
     
     radio_rfOff();
     radiotimer_cancel();
