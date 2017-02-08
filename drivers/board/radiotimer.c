@@ -69,10 +69,6 @@ void radiotimer_start(PORT_RADIOTIMER_WIDTH period) {
    TBCCTL2  =  0;
    TBCCR2   =  0;
    
-   // CCR3 in compare mode (disabled for now)
-   TBCCTL3  =  0;
-   TBCCR3   =  0;
-   
    // start counting
    TBCTL    =  TBIE+TBCLR;                       // interrupt when counter resets
    TBCTL   |=  MC_1+TBSSEL_2;                    // up mode, clocked from SMCLK 4.9MHz typicallys
