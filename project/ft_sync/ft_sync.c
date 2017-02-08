@@ -22,11 +22,13 @@
 // 2B fcf + 1B dsn + 2B dest panId + 2B dest address + 2B crc
 #define FRAME_LENGTH 2 + 1 + 2 + 2 + 2 
 
-#define BSP_TIMER_PERIOD                  10000
-
-//==== mote who send initial data packet and mote the packet is going to deliver to
-#define SOURCE_ID                          0x57
-#define DESTINATION_ID                     0x5e
+//==== mote role
+#define SOURCE_ID                          0x16
+#define FIRST_HOP_1                        0xdd
+#define FIRST_HOP_2                        0x0f
+#define SECOND_HOP_1                       0x5e
+#define SECOND_HOP_2                       0x05
+#define DESTINATION_ID                     0x57
 
 
 //==== timing @ 32kHz
@@ -36,17 +38,22 @@
 #define RxAckTimeout                       1750 // measure 12tickes@32kHz ~ 349us from endOfframe to receiving ack
 #define RxDataTimeout                      1600 // packet sent require 320us  ~ 11ticks@32kHz
 
-#define RxCalibrationDelay                 1555 // 12 symbals period + spi r/w to read status, 311us
+#define RxCalibrationDelay                 1555 // 12 symbals period + one spi transcation, 311us
+#define BSP_TIMER_PERIOD                     10  // 10@32kHz ~ 305us
+
+#define NEXT_PACKET_SCHEDULE                 10 // ticks@32kHz, it will be convert to ticks@5mHz
 //==== sync
 
 #define RESYNCHRONIZATIONGUARD              750 
 
 //=========================== variables =======================================
 
-static  uint8_t cc2420_shortadr[2] = {0xaa,0xaa};
-static  uint8_t cc2420_panid[2]    = {0xff,0xff};
-static  uint8_t cc2420_ieeeadr[8]  = {0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa};
-
+static  uint8_t cc2420_shortadr_cycle_1[2] = {0xaa,0xaa};
+static  uint8_t cc2420_shortadr_cycle_2[2] = {0xbb,0xbb};
+static  uint8_t cc2420_panid_cycle_1[2]    = {0xaa,0xaa};
+static  uint8_t cc2420_panid_cycle_2[2]    = {0xbb,0xbb};
+static  uint8_t cc2420_ieeeadr_cycle_1[8]  = {0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa};
+static  uint8_t cc2420_ieeeadr_cycle_2[8]  = {0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb};
 typedef enum {
    S_SLEEP                   = 0x00,   // ready for next slot
    // synchronizing
@@ -100,7 +107,12 @@ typedef struct {
     uint8_t             lastDsn;
     asn_t               asn;
     
+    uint16_t            lastCouter;
+    uint16_t            ticksAt5m_in_oneTickAt32k;
+    uint8_t             tickCounter_index;
     bool                packetScheduled;
+    
+    uint8_t             cycleId;
 } app_vars_t;
 
 app_vars_t app_vars;
@@ -111,7 +123,6 @@ app_vars_t app_vars;
 void bsp_timer_cb_compare(void);
 void radiotimer_cb_overflow(void);
 void radiotimer_cb_compare(void);
-void radiotimer_cb_sync_compare(void);
 void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp);
 void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp);
 
@@ -147,33 +158,79 @@ int mote_main(void) {
     // prepare radiotimer
     radio_setOverflowCb(radiotimer_cb_overflow);
     radio_setCompareCb(radiotimer_cb_compare);
-    radiotimer_setCompare4syncCb(radiotimer_cb_sync_compare);
     radio_setStartFrameCb(radiotimer_cb_startFrame);
     radio_setEndFrameCb(radiotimer_cb_endFrame);
-   
-    // kick off first bsp_timer compare
-    bsp_timer_scheduleIn(BSP_TIMER_PERIOD);
    
     // prepare radio
     radio_rfOn();
     radio_setFrequency(CHANNEL);
     
     // ==== write short addr, panid and ieee addr
-    // write short address
-    cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR,
-                       &app_vars.cc2420_status,
-                       &cc2420_shortadr[0],
-                       2);
-    // write panId
-    cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,
-                       &app_vars.cc2420_status,
-                       &cc2420_panid[0],
-                       2);
-    // write 64-bit ieee address
-    cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,
-                       &app_vars.cc2420_status,
-                       &cc2420_ieeeadr[0],
-                       8);
+    if (
+        address[7]==SOURCE_ID   ||
+        address[7]==FIRST_HOP_1 ||
+        address[7]==FIRST_HOP_2
+    ) {
+        // write short address
+        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_shortadr_cycle_1[0],
+                           2);
+        // write panId
+        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_panid_cycle_1[0],
+                           2);
+        // write 64-bit ieee address
+        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_ieeeadr_cycle_1[0],
+                           8);
+        // fill packet
+        app_vars.packet[0] = FRAME_CONTROL_BYTE0; // fcf byte0
+        app_vars.packet[1] = FRAME_CONTROL_BYTE1; // fcf byte1
+//        app_vars.packet[2] = app_vars.lastDsn;    // fill it at beginning of each slot
+        app_vars.packet[3] = 0xaa;                // panId, LITTLE_ENDIAN
+        app_vars.packet[4] = 0xaa;                
+        app_vars.packet[5] = 0xaa;                // destAddr, LITTLE_ENDIAN
+        app_vars.packet[6] = 0xaa;                
+        app_vars.packet[7] = 0x00;                // reserved for crc
+        app_vars.packet[8] = 0x00;
+        app_vars.cycleId   = 0xaa;
+    }
+    
+    if (
+        address[7]==DESTINATION_ID   ||
+        address[7]==SECOND_HOP_1     ||
+        address[7]==SECOND_HOP_2
+    ) {
+        // write short address
+        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_shortadr_cycle_2[0],
+                           2);
+        // write panId
+        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_panid_cycle_2[0],
+                           2);
+        // write 64-bit ieee address
+        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_ieeeadr_cycle_2[0],
+                           8);
+                // fill packet
+        app_vars.packet[0] = FRAME_CONTROL_BYTE0; // fcf byte0
+        app_vars.packet[1] = FRAME_CONTROL_BYTE1; // fcf byte1
+//        app_vars.packet[2] = app_vars.lastDsn;    // fill it at beginning of each slot
+        app_vars.packet[3] = 0xbb;                // panId, LITTLE_ENDIAN
+        app_vars.packet[4] = 0xbb;                
+        app_vars.packet[5] = 0xbb;                // destAddr, LITTLE_ENDIAN
+        app_vars.packet[6] = 0xbb;                
+        app_vars.packet[7] = 0x00;                // reserved for crc
+        app_vars.packet[8] = 0x00;
+        app_vars.cycleId   = 0xbb;
+    }
    
     if (address[7]==SOURCE_ID){
         app_vars.isSrc   = 1;
@@ -181,16 +238,6 @@ int mote_main(void) {
         app_vars.changeDetected = 1;
         leds_sync_on();
         app_vars.lastDsn = 1; // start dsn from 1 if I am source mote
-        // fill packet
-        app_vars.packet[0] = FRAME_CONTROL_BYTE0; // fcf byte0
-        app_vars.packet[1] = FRAME_CONTROL_BYTE1; // fcf byte1
-//        app_vars.packet[2] = app_vars.lastDsn;    // fill it at beginning of each slot
-        app_vars.packet[3] = 0xff;                // panId, LITTLE_ENDIAN
-        app_vars.packet[4] = 0xff;                
-        app_vars.packet[5] = 0xaa;                // destAddr, LITTLE_ENDIAN
-        app_vars.packet[6] = 0xaa;                
-        app_vars.packet[7] = 0x00;                // reserved for crc
-        app_vars.packet[8] = 0x00;
     } else {
         if (address[7]==DESTINATION_ID){
             app_vars.isDest   = 1;
@@ -209,12 +256,15 @@ int mote_main(void) {
 //=========================== callbacks =======================================
 
 void bsp_timer_cb_compare(void) {
-   // schedule again
-//   bsp_timer_scheduleIn(BSP_TIMER_PERIOD);
+    uint16_t currentCounter;
+    // record radtimer counter
+    currentCounter = radiotimer_getValue();
+    app_vars.ticksAt5m_in_oneTickAt32k = (currentCounter-app_vars.lastCouter)/BSP_TIMER_PERIOD;
 }
 
 void radiotimer_cb_overflow(void) {
     // new slot
+   
     if (app_vars.isSync){
         debugpins_slot_toggle();
         radiotimer_setPeriod(PORT_TsSlotDuration);
@@ -229,8 +279,12 @@ void radiotimer_cb_overflow(void) {
                 app_vars.packet[2] = app_vars.lastDsn;
                 app_vars.lastDsn++;
             } else {
-                endSlot();
-                return;
+                if (app_vars.packetScheduled==1){
+                    app_vars.app_state = S_TXDATAPREPARE;
+                } else {
+                    endSlot();
+                    return;
+                }
             }
         } else {
             if (app_vars.packetScheduled==0){
@@ -252,6 +306,10 @@ void radiotimer_cb_overflow(void) {
         radio_txEnable();
         app_vars.app_state = S_TXDATAREADY;
     } else {
+        if (app_vars.app_state == S_RXDATA ||app_vars.app_state == S_TXACK){
+            // in the middle of receiving something right now
+            return;
+        }
         // keep listening for packet
         app_vars.app_state = S_RXDATALISTEN;
         radio_rxNow();
@@ -299,10 +357,6 @@ void radiotimer_cb_compare(void) {
     }
 }
 
-void radiotimer_cb_sync_compare(void){
-    
-}
-
 void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp){
     switch (app_vars.app_state){
     case S_TXDATADELAY:
@@ -310,11 +364,11 @@ void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp){
         break;
     case S_RXDATALISTEN:
         app_vars.timeReceived = timestamp;
-        app_vars.app_state  = S_RXDATA;
+        app_vars.app_state    = S_RXDATA;
         radiotimer_schedule(timestamp+RxDataTimeout);
         break;
     case S_RXACKLISTEN:
-        app_vars.app_state  = S_RXACK;
+        app_vars.app_state    = S_RXACK;
         radiotimer_cancel();
         break;
     case S_TXACKDELAY:
@@ -337,15 +391,21 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
         break;
     case S_RXDATA:
         radiotimer_cancel();
-        // update state for autoAck
+        // expected an ACK will be sent automatically
         app_vars.app_state = S_TXACKDELAY;
         break;
     case S_RXACK:
         // schedule the packet at next slot if ack has new dsn insdie.
-         endSlot();
+        // end slot first
+        endSlot();
+        radiotimer_schedule(NEXT_PACKET_SCHEDULE * app_vars.ticksAt5m_in_oneTickAt32k - (radiotimer_getPeriod()-timestamp) - PORT_delayTx);
+        if (app_vars.isSrc==0){
+            app_vars.packetScheduled = 1;
+        }
         break;
     case S_TXACK:
         packet_len = FRAME_LENGTH;
+        memset(&app_vars.packet,0,sizeof(app_vars.packet));
         // get packet from radio
         radio_getReceivedFrame(
             app_vars.packet,
@@ -355,6 +415,10 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
             &app_vars.rxpk_lqi,
             &app_vars.rxpk_crc
         );
+        if (app_vars.cycleId != app_vars.packet[3]){
+            app_vars.app_state = S_RXDATALISTEN;
+            return;
+        }
         if (app_vars.isSync==0){
             // synchronization
             synchronizePacket(app_vars.timeReceived);
@@ -439,6 +503,12 @@ void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived) {
     leds_sync_on();
 }
 void endSlot(){
+    
     radio_rfOff();
     radiotimer_cancel();
+    
+    // schedule bsp timer for calibrate SMCLK clock
+    bsp_timer_reset();
+    app_vars.lastCouter = radiotimer_getValue();
+    bsp_timer_scheduleIn(BSP_TIMER_PERIOD);
 }
