@@ -31,10 +31,11 @@
 //==== timing @ ~4.9MHz
 #define TxOffset                           5000 // 5000 @5MHz ~ 1000us
 #define TxGuardTime                         750 // 750 @5MHz ~ 150us
-#define TxAckOffset                        8350 // 3350 @5MHz ~ 670us from Tx to Ack send out, so 3350+TxOffset
+#define TxAckOffset                        8350 // 670us (3350 @5MHz) from Tx to Ack start of frame, so 3350+TxOffset
 
-#define RxAckTimeout                       1750 // measure 12tickes@32kHz ~ 349us from endOfframe to receiving ack
-#define RxDataTimeout                      1600 // packet sent require 320us  ~ 11ticks@32kHz
+#define TxAutoAckTimeout                   1750 // measure 12tickes@32kHz ~ 349us from endOfframe(data) to transmit ack
+#define RxDataTimeout                      2500 // 500us, packet sent require 320us  ~ 11ticks@32kHz
+#define RxAckTimeout                       1500 // 300us, ack sent require 160us
 
 #define RxCalibrationDelay                 1555 // 12 symbals period + one spi transcation, 311us
 
@@ -109,6 +110,7 @@ typedef struct {
     
     uint16_t            lastCouter;
     uint16_t            ticksAt5m2oneTickAt32k[SAMPLE_SET_SIZE];
+    uint16_t            internalValue;
     uint8_t             tickCounter_index;
     bool                packetScheduled;
     
@@ -131,7 +133,7 @@ kick_scheduler_t   radiotimer_isr(void);
 
 // synchronization
 void increaseAsn(void);
-void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived);
+void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived, PORT_RADIOTIMER_WIDTH reference);
 void endSlot();
 
 // helper
@@ -264,6 +266,10 @@ void bsp_timer_cb_compare(void) {
     currentCounter              = radiotimer_getValue();
     app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index] = (currentCounter-app_vars.lastCouter)/BSP_TIMER_PERIOD;
     app_vars.tickCounter_index  = (app_vars.tickCounter_index+1)%SAMPLE_SET_SIZE;
+    
+    app_vars.internalValue  = averageArray(&app_vars.ticksAt5m2oneTickAt32k[0],SAMPLE_SET_SIZE);
+    app_vars.internalValue *= NEXT_PACKET_SCHEDULE;
+    app_vars.internalValue -= PORT_delayTx;
 }
 
 void radiotimer_cb_overflow(void) {
@@ -372,8 +378,9 @@ void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp){
         radiotimer_schedule(timestamp+RxDataTimeout);
         break;
     case S_RXACKLISTEN:
+        app_vars.timeReceived = timestamp;
         app_vars.app_state    = S_RXACK;
-        radiotimer_cancel();
+        radiotimer_schedule(timestamp+RxAckTimeout);
         break;
     case S_TXACKDELAY:
         app_vars.app_state  = S_TXACK;
@@ -387,25 +394,44 @@ void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp){
 
 void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
     uint8_t packet_len;
-    uint16_t scheduleTime;
-    scheduleTime  = averageArray(&app_vars.ticksAt5m2oneTickAt32k[0],SAMPLE_SET_SIZE);
-    scheduleTime *= NEXT_PACKET_SCHEDULE;
-    scheduleTime -= (radiotimer_getPeriod()-timestamp);
-    scheduleTime -= PORT_delayTx;
-    
     switch (app_vars.app_state){
     case S_RXACK:
-        // schedule the packet at next slot if ack has new dsn insdie.
-        radiotimer_schedule(scheduleTime);
+        // schedule the packet at next slot if ack has new dsn insdie
+        // if not needed, cancel it later
+        radiotimer_schedule(app_vars.internalValue-(TBCCR0-timestamp));
         radio_rfOff();
         if (app_vars.isSrc==0){
             app_vars.packetScheduled = 1;
+            if (app_vars.isSync==0){
+                synchronizePacket(app_vars.timeReceived,TxAckOffset);
+                // update last dsn 
+                app_vars.lastDsn = app_vars.packet[2];
+            } else {
+                // check whether this is first time heard the packet depending on dsn
+                if (
+                    (
+                      (app_vars.packet[2]>app_vars.lastDsn)
+                    ) ||
+                    (
+                      app_vars.packet[2] < app_vars.lastDsn &&
+                      app_vars.lastDsn - app_vars.packet[2] > 0xf7 // in case I lost few packets previous
+                    )
+                ){
+                    // synchronization
+                    synchronizePacket(app_vars.timeReceived,TxAckOffset);
+                    // update last dsn
+                    app_vars.lastDsn = app_vars.packet[2];
+                }
+            }
+        } else {
+            // src never relay packet
+            endSlot();
         }
         break;
     case S_TXDATA:
         // after transmission, radio will turn to Rx itself
         app_vars.app_state  = S_RXACKLISTEN;
-        radiotimer_schedule(timestamp+RxAckTimeout);
+        radiotimer_schedule(timestamp+TxAutoAckTimeout);
         break;
     case S_RXDATA:
         radiotimer_cancel();
@@ -430,11 +456,11 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
         }
         if (app_vars.isSync==0){
             // synchronization
-            synchronizePacket(app_vars.timeReceived);
+            synchronizePacket(app_vars.timeReceived,TxOffset);
             // update last dsn 
             app_vars.lastDsn = app_vars.packet[2];
         } else {
-            // check whether this is first time heard the packet
+            // check whether this is first time heard the packet depending on dsn
             if (
                 (
                   (app_vars.packet[2]>app_vars.lastDsn)
@@ -445,7 +471,7 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
                 )
             ){
                 // synchronization
-                synchronizePacket(app_vars.timeReceived);
+                synchronizePacket(app_vars.timeReceived,TxOffset);
                 // update last dsn
                 app_vars.lastDsn = app_vars.packet[2];
             }
@@ -470,7 +496,7 @@ void increaseAsn(void){
     }
 }
 
-void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived) {
+void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived, PORT_RADIOTIMER_WIDTH reference) {
    PORT_SIGNED_INT_WIDTH timeCorrection;
    PORT_RADIOTIMER_WIDTH newPeriod;
    PORT_RADIOTIMER_WIDTH currentPeriod;
@@ -481,7 +507,7 @@ void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived) {
    currentPeriod                  =  radio_getTimerPeriod();
    
    // calculate new period
-   timeCorrection                 =  (PORT_SIGNED_INT_WIDTH)((PORT_SIGNED_INT_WIDTH)timeReceived - (PORT_SIGNED_INT_WIDTH)TxOffset);
+   timeCorrection                 =  (PORT_SIGNED_INT_WIDTH)((PORT_SIGNED_INT_WIDTH)timeReceived - (PORT_SIGNED_INT_WIDTH)reference);
 
 
    // The interrupt beginning a new slot can either occur after the packet has been
