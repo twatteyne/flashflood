@@ -12,11 +12,9 @@
 
 //=========================== defines =========================================
 
-#define CHANNEL 26
-
 #define CHANNEL               26
-#define SENDING_PERIOD        32768 // 32768@32kHz = 1 second
 
+//==== frame content
 #define FRAME_CONTROL_BYTE0   0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
 #define FRAME_CONTROL_BYTE1   0x18 // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
 // 2B fcf + 1B dsn + 2B dest panId + 2B dest address + 2B crc
@@ -30,20 +28,22 @@
 #define SECOND_HOP_2                       0x05
 #define DESTINATION_ID                     0x57
 
-
-//==== timing @ 32kHz
+//==== timing @ ~4.9MHz
 #define TxOffset                           5000 // 5000 @5MHz ~ 1000us
 #define TxGuardTime                         750 // 750 @5MHz ~ 150us
 #define TxAckOffset                        8350 // 3350 @5MHz ~ 670us from Tx to Ack send out, so 3350+TxOffset
+
 #define RxAckTimeout                       1750 // measure 12tickes@32kHz ~ 349us from endOfframe to receiving ack
 #define RxDataTimeout                      1600 // packet sent require 320us  ~ 11ticks@32kHz
 
 #define RxCalibrationDelay                 1555 // 12 symbals period + one spi transcation, 311us
+
+//=== subTick calculation
 #define BSP_TIMER_PERIOD                     10  // 10@32kHz ~ 305us
-
 #define NEXT_PACKET_SCHEDULE                 10 // ticks@32kHz, it will be convert to ticks@5mHz
-//==== sync
+#define SAMPLE_SET_SIZE                       5
 
+//==== sync
 #define RESYNCHRONIZATIONGUARD              750 
 
 //=========================== variables =======================================
@@ -108,7 +108,7 @@ typedef struct {
     asn_t               asn;
     
     uint16_t            lastCouter;
-    uint16_t            ticksAt5m_in_oneTickAt32k;
+    uint16_t            ticksAt5m2oneTickAt32k[SAMPLE_SET_SIZE];
     uint8_t             tickCounter_index;
     bool                packetScheduled;
     
@@ -133,6 +133,9 @@ kick_scheduler_t   radiotimer_isr(void);
 void increaseAsn(void);
 void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived);
 void endSlot();
+
+// helper
+uint16_t averageArray(uint16_t* array,uint8_t length);
 
 //=========================== main ============================================
 
@@ -258,8 +261,9 @@ int mote_main(void) {
 void bsp_timer_cb_compare(void) {
     uint16_t currentCounter;
     // record radtimer counter
-    currentCounter = radiotimer_getValue();
-    app_vars.ticksAt5m_in_oneTickAt32k = (currentCounter-app_vars.lastCouter)/BSP_TIMER_PERIOD;
+    currentCounter              = radiotimer_getValue();
+    app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index] = (currentCounter-app_vars.lastCouter)/BSP_TIMER_PERIOD;
+    app_vars.tickCounter_index  = (app_vars.tickCounter_index+1)%SAMPLE_SET_SIZE;
 }
 
 void radiotimer_cb_overflow(void) {
@@ -383,7 +387,21 @@ void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp){
 
 void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
     uint8_t packet_len;
+    uint16_t scheduleTime;
+    scheduleTime  = averageArray(&app_vars.ticksAt5m2oneTickAt32k[0],SAMPLE_SET_SIZE);
+    scheduleTime *= NEXT_PACKET_SCHEDULE;
+    scheduleTime -= (radiotimer_getPeriod()-timestamp);
+    scheduleTime -= PORT_delayTx;
+    
     switch (app_vars.app_state){
+    case S_RXACK:
+        // schedule the packet at next slot if ack has new dsn insdie.
+        radiotimer_schedule(scheduleTime);
+        radio_rfOff();
+        if (app_vars.isSrc==0){
+            app_vars.packetScheduled = 1;
+        }
+        break;
     case S_TXDATA:
         // after transmission, radio will turn to Rx itself
         app_vars.app_state  = S_RXACKLISTEN;
@@ -393,15 +411,6 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
         radiotimer_cancel();
         // expected an ACK will be sent automatically
         app_vars.app_state = S_TXACKDELAY;
-        break;
-    case S_RXACK:
-        // schedule the packet at next slot if ack has new dsn insdie.
-        // end slot first
-        endSlot();
-        radiotimer_schedule(NEXT_PACKET_SCHEDULE * app_vars.ticksAt5m_in_oneTickAt32k - (radiotimer_getPeriod()-timestamp) - PORT_delayTx);
-        if (app_vars.isSrc==0){
-            app_vars.packetScheduled = 1;
-        }
         break;
     case S_TXACK:
         packet_len = FRAME_LENGTH;
@@ -507,8 +516,25 @@ void endSlot(){
     radio_rfOff();
     radiotimer_cancel();
     
-    // schedule bsp timer for calibrate SMCLK clock
+    // schedule bsp timer for calibrating SMCLK clock
     bsp_timer_reset();
     app_vars.lastCouter = radiotimer_getValue();
     bsp_timer_scheduleIn(BSP_TIMER_PERIOD);
+}
+
+// ========================== helper ==========================================
+
+// make sure the item value is less than (65535/length)
+uint16_t averageArray(uint16_t* array,uint8_t length){
+    uint8_t i,j=0;
+    uint16_t average, sum=0;
+    for (i=0;i<length;i++){
+        // don't take zero into consideration
+        if (array!=0){
+            sum += array[i];
+            j++;
+        }
+    }
+    average = (sum/j);
+    return average;
 }
