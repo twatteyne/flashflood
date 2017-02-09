@@ -103,6 +103,8 @@ typedef struct {
     uint16_t asn2and3;
 }asn_t;
 
+typedef void (*task_cbt)(void);
+
 typedef struct {
     bool                changeDetected;
     bool                isSrc;
@@ -120,12 +122,15 @@ typedef struct {
     uint8_t             lastDsn;
     asn_t               asn;
     
+    uint16_t            radiotimerCounter;   // number subTicks within BSP_TIMER_PERIOD
     uint16_t            ticksAt5m2oneTickAt32k[SAMPLE_SET_SIZE];
     uint16_t            internalValue;
     uint8_t             tickCounter_index;
     bool                packetScheduled;
     
     uint8_t             cycleId;
+    
+    task_cbt            task;
 } app_vars_t;
 
 app_vars_t app_vars;
@@ -264,17 +269,19 @@ int mote_main(void) {
     bsp_timer_start(PORT_TsSlotDuration);
    
     while (1) {
+        if (app_vars.task!=NULL){
+            app_vars.task();
+            app_vars.task=NULL;
+        }
         board_sleep();
     }
 }
 
 //=========================== callbacks =======================================
 
-void calculateSubticks(void) {
-    uint16_t currentCounter;
+void calculateSubticks() {
     // record radtimer counter
-    currentCounter              = radiotimer_getValue();
-    app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index] = currentCounter/BSP_TIMER_PERIOD;
+    app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index] = app_vars.radiotimerCounter/BSP_TIMER_PERIOD;
     app_vars.tickCounter_index  = (app_vars.tickCounter_index+1)%SAMPLE_SET_SIZE;
     
     app_vars.internalValue  = averageArray(&app_vars.ticksAt5m2oneTickAt32k[0],SAMPLE_SET_SIZE);
@@ -304,28 +311,31 @@ void bsp_timer_cb_subtickCalculate(void) {
     ){  // a SoF happended before, don't calculate this time
         
     } else {
-        calculateSubticks();
+        if (app_vars.task==NULL){
+            app_vars.radiotimerCounter = radiotimer_getValue();
+            app_vars.task = calculateSubticks;
+        } else {
+            // skip this time
+        }
     }
 }
 
 // start of slot
 void bsp_timer_cb_overflow(void) {
-    if (app_vars.isSync){
-          debugpins_slot_toggle();
-          bsp_timer_setPeriod(PORT_TsSlotDuration);
-          increaseAsn();
-    }
     if (app_vars.packetScheduled==0){
         // schedule bsp timer for calibrating SMCLK clock
         radiotimer_reset();
         bsp_timer_schedule_subTickCalc(BSP_TIMER_PERIOD);
     }
-    startCommunicating();
+    app_vars.task = startCommunicating;
 }
 
 
 void startCommunicating(){
     if (app_vars.isSync){
+        debugpins_slot_toggle();
+        bsp_timer_setPeriod(PORT_TsSlotDuration);
+        increaseAsn();
         debugpins_fsm_toggle();
         if (app_vars.isSrc){
             if (app_vars.changeDetected){
@@ -557,6 +567,8 @@ void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived, PORT_RADIOTIMER_WIDTH
    PORT_RADIOTIMER_WIDTH currentPeriod;
    PORT_RADIOTIMER_WIDTH currentValue;
    
+   uint16_t taiv_local;
+   
    // record the current timer value and period
    currentValue                   =  bsp_timer_get_currentValue();
    currentPeriod                  =  bsp_timer_getPeriod();
@@ -573,10 +585,12 @@ void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived, PORT_RADIOTIMER_WIDTH
    // we need the new slot to end after the remaining time which is timeCorrection
    // and in this constellation is guaranteed to be positive.
    if (currentValue < timeReceived) {
-       newPeriod = (PORT_RADIOTIMER_WIDTH)timeCorrection;
-   } else {
-       newPeriod =  (PORT_RADIOTIMER_WIDTH)((PORT_SIGNED_INT_WIDTH)currentPeriod + timeCorrection);
+       // clear the overflow interrupt bit by reading it
+       taiv_local = TAIV;
+       taiv_local++;
    }
+   
+   newPeriod =  (PORT_RADIOTIMER_WIDTH)((PORT_SIGNED_INT_WIDTH)currentPeriod + timeCorrection);
    
    // detect whether I'm too close to the edge of the slot, in that case,
    // skip a slot and increase the temporary slot length to be 2 slots long
