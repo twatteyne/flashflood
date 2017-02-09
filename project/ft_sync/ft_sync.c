@@ -9,6 +9,7 @@
 #include "radio.h"
 #include "cc2420.h"
 #include "msp430f1611.h"
+#include "ft_sync.h"
 
 //=========================== defines =========================================
 
@@ -580,4 +581,8 @@ uint16_t averageArray(uint16_t* array,uint8_t length){
     }
     average = (sum/j);
     return average;
+}
+
+void ft_sync_changeDetected(){
+    app_vars.changeDetected = 1;
 }

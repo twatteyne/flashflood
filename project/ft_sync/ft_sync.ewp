@@ -328,6 +328,7 @@
           <state>$PROJ_DIR$\..\..\drivers\board\</state>
           <state>$PROJ_DIR$\..\..\drivers\cc2420\</state>
           <state>$PROJ_DIR$\..\..\inc\</state>
+          <state>$PROJ_DIR$</state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -2107,6 +2108,9 @@
     <name>project</name>
     <file>
       <name>$PROJ_DIR$\ft_sync.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\ft_sync.h</name>
     </file>
   </group>
 </project>

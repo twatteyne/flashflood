@@ -14,6 +14,7 @@
 #include "bsp_timer.h"
 #include "radio.h"
 #include "radiotimer.h"
+#include "ft_sync.h"
 
 //=========================== variables =======================================
 
@@ -50,6 +51,12 @@ void board_init() {
    // initialize pins
    P4DIR     |=  0x20;                           // [P4.5] radio VREG:  output
    P4DIR     |=  0x40;                           // [P4.6] radio reset: output
+   
+   // button connected to P2.7, i.e. configuration 0x80 in P2DIR/P2OUT/P2IN registers
+   P2DIR     &= ~0x80;                           // input direction
+   P2OUT     |=  0x80;                           // put pin high as pushing button brings low
+   P2IES     |=  0x80;                           // interrup when transition is high-to-low
+   P2IE      |=  0x80;                           // enable interrupts
    
    // initialize bsp modules
    debugpins_init();
@@ -134,6 +141,11 @@ ISR(TIMERB1) {
       __bic_SR_register_on_exit(CPUOFF);
    }
    debugpins_isr_clr();
+}
+
+ISR(PORT2) {
+    P2IFG &= ~0x80;                               // clear the interrupt flag
+    ft_sync_changeDetected();
 }
 
 // TIMERB0_VECTOR
