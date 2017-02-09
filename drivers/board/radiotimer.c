@@ -40,10 +40,6 @@ void radiotimer_setCompareCb(radiotimer_compare_cbt cb) {
    radiotimer_vars.compareCb      = cb;
 }
 
-void radiotimer_setCompare4syncCb(radiotimer_compare_cbt cb) {
-   radiotimer_vars.compare4syncCb = cb;
-}
-
 void radiotimer_setStartFrameCb(radiotimer_capture_cbt cb) {
    radiotimer_vars.startFrameCb   = cb;
 }
