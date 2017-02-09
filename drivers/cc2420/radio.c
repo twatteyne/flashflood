@@ -40,15 +40,15 @@ void radio_init(void) {
    radio_vars.state          = RADIOSTATE_RFOFF;
    
    // start radiotimer with dummy setting to activate SFD pin interrupt
-   radiotimer_start(0xffff);
+   bsp_timer_start(0xffff);
 }
 
-void radio_setOverflowCb(radiotimer_compare_cbt cb) {
-   radiotimer_setOverflowCb(cb);
+void radio_setOverflowCb(bsp_timer_cbt cb) {
+   bsp_timer_setOverflowCb(cb);
 }
 
-void radio_setCompareCb(radiotimer_compare_cbt cb) {
-   radiotimer_setCompareCb(cb);
+void radio_setCompareCb(bsp_timer_cbt cb) {
+   bsp_timer_setCompareCb(cb);
 }
 
 void radio_setStartFrameCb(radiotimer_capture_cbt cb) {
@@ -139,11 +139,11 @@ uint16_t radio_getTimerValue(void) {
 }
 
 void radio_setTimerPeriod(uint16_t period) {
-   radiotimer_setPeriod(period);
+   bsp_timer_setPeriod(period);
 }
 
 uint16_t radio_getTimerPeriod(void) {
-   return radiotimer_getPeriod();
+   return bsp_timer_getPeriod();
 }
 
 //===== RF admin

@@ -11,9 +11,7 @@
 //=========================== variables =======================================
 
 typedef struct {
-   radiotimer_compare_cbt    overflowCb;
    radiotimer_compare_cbt    compareCb;
-   radiotimer_compare_cbt    compare4syncCb;
    radiotimer_capture_cbt    startFrameCb;
    radiotimer_capture_cbt    endFrameCb;
    uint8_t                   f_SFDreceived;
@@ -30,10 +28,18 @@ radiotimer_vars_t radiotimer_vars;
 void radiotimer_init() {
    // clear local variables
    memset(&radiotimer_vars,0,sizeof(radiotimer_vars_t));
-}
-
-void radiotimer_setOverflowCb(radiotimer_compare_cbt cb) {
-   radiotimer_vars.overflowCb     = cb;
+   
+   // CCR1 in capture mode
+   TBCCTL1  =  CM_3+SCS+CAP+CCIE;
+   TBCCR1   =  0;
+   
+   // CCR2 in compare mode (disabled for now)
+   TBCCTL2  =  0;
+   TBCCR2   =  0;
+   
+   // start counting
+   TBCTL    =  TBIE+TBCLR;                       // interrupt when counter resets
+   TBCTL   |=  MC_2+TBSSEL_2;                    // continue mode, clocked from SMCLK
 }
 
 void radiotimer_setCompareCb(radiotimer_compare_cbt cb) {
@@ -48,45 +54,12 @@ void radiotimer_setEndFrameCb(radiotimer_capture_cbt cb) {
    radiotimer_vars.endFrameCb     = cb;
 }
 
-void radiotimer_start(PORT_RADIOTIMER_WIDTH period) {
-   // radio's SFD pin connected to P4.1
-   P4DIR   &= ~0x02; // input
-   P4SEL   |=  0x02; // in CCI1a/B mode
-   
-   // CCR0 contains period of counter
-   // do not interrupt when counter reaches TBCCR0, but when it resets
-   TBCCR0   =  period-1;
-   
-   // CCR1 in capture mode
-   TBCCTL1  =  CM_3+SCS+CAP+CCIE;
-   TBCCR1   =  0;
-   
-   // CCR2 in compare mode (disabled for now)
-   TBCCTL2  =  0;
-   TBCCR2   =  0;
-   
-   // start counting
-   TBCTL    =  TBIE+TBCLR;                       // interrupt when counter resets
-   TBCTL   |=  MC_1+TBSSEL_2;                    // up mode, clocked from SMCLK 4.9MHz typicallys
-}
-
-//===== direct access
-
-PORT_RADIOTIMER_WIDTH radiotimer_getValue() {
-   return TBR;
-}
-
-void radiotimer_setPeriod(PORT_RADIOTIMER_WIDTH period) {
-   TBCCR0   =  period;
-}
-
-PORT_RADIOTIMER_WIDTH radiotimer_getPeriod() {
-   return TBCCR0;
-}
-
 //===== compare
 
-void radiotimer_schedule(PORT_RADIOTIMER_WIDTH offset) {
+void radiotimer_scheduleIn(PORT_TIMER_WIDTH offset) {
+   // reset timer
+   TBR      = 0;
+   
    // offset when to fire
    TBCCR2   =  offset;
    
@@ -102,18 +75,19 @@ void radiotimer_cancel() {
    TBCCTL2 &= ~CCIE;
 }
 
-//===== capture
+void radiotimer_reset(){
+    // reset timer
+    TBR     = 0;
+    // reset compare value (also resets interrupt flag)
+    TBCCR2  = 0;
+    // disable compare interrupt
+    TBCCTL2 = 0;
+}
 
-inline PORT_RADIOTIMER_WIDTH radiotimer_getCapturedTime() {
-   // this should never happpen!
-   
-   // we can not print from within the BSP. Instead:
-   // blink the error LED
-   leds_error_blink();
-   // reset the board
-   board_reset();
-   
-   return 0;// this line is never reached, but here to satisfy compiler
+//===== direct access
+
+PORT_RADIOTIMER_WIDTH radiotimer_getValue() {
+   return TBR;
 }
 
 //=========================== private =========================================
@@ -138,7 +112,7 @@ kick_scheduler_t radiotimer_isr() {
          if (TBCCTL1 & CCI) {
             // SFD pin is high: this was the start of a frame
             if (radiotimer_vars.startFrameCb!=NULL) {
-               radiotimer_vars.startFrameCb(TBCCR1);
+               radiotimer_vars.startFrameCb(TAR);
                radiotimer_vars.f_SFDreceived = 1;
                // kick the OS
                return KICK_SCHEDULER;
@@ -147,7 +121,7 @@ kick_scheduler_t radiotimer_isr() {
             // SFD pin is low: this was the end of a frame
             if (radiotimer_vars.endFrameCb!=NULL) {
                if (radiotimer_vars.f_SFDreceived == 1) {
-                  radiotimer_vars.endFrameCb(TBCCR1);
+                  radiotimer_vars.endFrameCb(TAR);
                   radiotimer_vars.f_SFDreceived = 0;
                }
                TBCCTL1 &= ~COV;
@@ -158,11 +132,10 @@ kick_scheduler_t radiotimer_isr() {
          }
          break;
       case 0x0004: // CCR2 fires
-         if (radiotimer_vars.compareCb!=NULL) {
-            radiotimer_vars.compareCb();
-            // kick the OS
-            return KICK_SCHEDULER;
-         }
+          if (radiotimer_vars.compareCb!=NULL){
+              radiotimer_vars.compareCb();
+          }
+          return KICK_SCHEDULER;
          break;
       case 0x0006: // CCR3 fires
          break;
@@ -173,11 +146,6 @@ kick_scheduler_t radiotimer_isr() {
       case 0x000c: // CCR6 fires
          break;
       case 0x000e: // timer overflow
-         if (radiotimer_vars.overflowCb!=NULL) {
-            radiotimer_vars.overflowCb();
-            // kick the OS
-            return KICK_SCHEDULER;
-         }
          break;
    }
    return DO_NOT_KICK_SCHEDULER;

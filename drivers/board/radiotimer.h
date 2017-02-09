@@ -28,24 +28,17 @@ typedef void (*radiotimer_capture_cbt)(PORT_TIMER_WIDTH timestamp);
 
 // admin
 void     radiotimer_init(void);
-void     radiotimer_setOverflowCb(radiotimer_compare_cbt cb);
 void     radiotimer_setCompareCb(radiotimer_compare_cbt cb);
-void     radiotimer_setCompare4syncCb(radiotimer_compare_cbt cb);
 void     radiotimer_setStartFrameCb(radiotimer_capture_cbt cb);
 void     radiotimer_setEndFrameCb(radiotimer_capture_cbt cb);
 void     radiotimer_start(PORT_RADIOTIMER_WIDTH period);
+
+void     radiotimer_scheduleIn(PORT_RADIOTIMER_WIDTH offset);
+void     radiotimer_cancel();
+void     radiotimer_reset();
+
 // direct access
 PORT_RADIOTIMER_WIDTH radiotimer_getValue(void);
-void     radiotimer_setPeriod(PORT_RADIOTIMER_WIDTH period);
-PORT_RADIOTIMER_WIDTH radiotimer_getPeriod(void);
-// compare
-void     radiotimer_schedule(PORT_RADIOTIMER_WIDTH offset);
-void     radiotimer_cancel(void);
-// compare (sync)
-void     radiotimer_sync_schedule(PORT_RADIOTIMER_WIDTH offset);
-void     radiotimer_sync_cancel(void);
-// capture
-PORT_RADIOTIMER_WIDTH radiotimer_getCapturedTime(void);
 
 // interrupt handlers
 kick_scheduler_t   radiotimer_isr(void);

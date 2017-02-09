@@ -48,15 +48,6 @@ to this board.
 #define PORT_PIN_RADIO_RESET_HIGH()         P4OUT |=  0x40;
 #define PORT_PIN_RADIO_RESET_LOW()          P4OUT &= ~0x40;  
 
-//===== IEEE802154E timing
-
-// time-slot related
-#define PORT_TsSlotDuration                 25000   // 5ms@5MHz
-
-// radio speed related
-#define PORT_delayTx                        1760    // 366us (measured  352us)@5MHz
-#define PORT_delayRx                        0       //     0us (can not measure)
-
 
 //=========================== prototypes ======================================
 

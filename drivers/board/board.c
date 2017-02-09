@@ -107,7 +107,7 @@ ISR(USART1RX) {
 
 // TIMERA1_VECTOR
 
-ISR(TIMERA0) {
+ISR(TIMERA1) {
    debugpins_isr_set();
    if (bsp_timer_isr()==KICK_SCHEDULER) {        // timer: 0
       __bic_SR_register_on_exit(CPUOFF);

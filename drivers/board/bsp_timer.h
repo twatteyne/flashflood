@@ -26,11 +26,17 @@ typedef void (*bsp_timer_cbt)(void);
 //=========================== prototypes ======================================
 
 void               bsp_timer_init(void);
-void               bsp_timer_set_callback(bsp_timer_cbt cb);
-void               bsp_timer_reset(void);
-void               bsp_timer_scheduleIn(PORT_TIMER_WIDTH delayTicks);
-void               bsp_timer_cancel_schedule(void);
+
+void               bsp_timer_schedule(PORT_TIMER_WIDTH offset);
+void               bsp_timer_cancel();
+void               bsp_timer_start(PORT_TIMER_WIDTH period);
+
 PORT_TIMER_WIDTH   bsp_timer_get_currentValue(void);
+void               bsp_timer_setPeriod(PORT_TIMER_WIDTH period);
+PORT_TIMER_WIDTH   bsp_timer_getPeriod();
+
+void               bsp_timer_setOverflowCb(bsp_timer_cbt cb);
+void               bsp_timer_setCompareCb(bsp_timer_cbt cb);
 
 // interrupt handlers
 kick_scheduler_t   bsp_timer_isr(void);

@@ -12,6 +12,7 @@
 \author Thomas Watteyne <watteyne@eecs.berkeley.edu>, February 2012.
 */
 
+#include "bsp_timer.h"
 #include "radiotimer.h"
 
 //=========================== define ==========================================
@@ -50,8 +51,8 @@ typedef enum {
 
 // admin
 void     radio_init(void);
-void     radio_setOverflowCb(radiotimer_compare_cbt cb);
-void     radio_setCompareCb(radiotimer_compare_cbt cb);
+void     radio_setOverflowCb(bsp_timer_cbt cb);
+void     radio_setCompareCb(bsp_timer_cbt cb);
 void     radio_setStartFrameCb(radiotimer_capture_cbt cb);
 void     radio_setEndFrameCb(radiotimer_capture_cbt cb);
 // reset

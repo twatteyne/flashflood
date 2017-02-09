@@ -15,7 +15,8 @@ On TelosB, we use timerA0 for the bsp_timer module.
 //=========================== variables =======================================
 
 typedef struct {
-   bsp_timer_cbt    cb;
+   bsp_timer_cbt    overflowCb;
+   bsp_timer_cbt    compareCb;
    PORT_TIMER_WIDTH last_compare_value;
 } bsp_timer_vars_t;
 
@@ -32,97 +33,67 @@ This functions starts the timer, i.e. the counter increments, but doesn't set
 any compare registers, so no interrupt will fire.
 */
 void bsp_timer_init() {
-   
-   // clear local variables
-   memset(&bsp_timer_vars,0,sizeof(bsp_timer_vars_t));
-   
-   // set CCRA0 registers
-   TACCR0               =  0;
-   TACCTL0              =  0;
-   
-   //start TimerA
-   TACTL                =  MC_2+TASSEL_1;        // continuous mode, from ACLK
+    // clear local variables
+    memset(&bsp_timer_vars,0,sizeof(bsp_timer_vars_t));
 }
 
-/**
-\brief Register a callback.
-
-\param cb The function to be called when a compare event happens.
-*/
-void bsp_timer_set_callback(bsp_timer_cbt cb) {
-   bsp_timer_vars.cb   = cb;
+void bsp_timer_setOverflowCb(bsp_timer_cbt cb) {
+    bsp_timer_vars.overflowCb     = cb;
 }
 
-/**
-\brief Reset the timer.
-
-This function does not stop the timer, it rather resets the value of the
-counter, and cancels a possible pending compare event.
-*/
-void bsp_timer_reset() {
-   // reset compare
-   TACCR0               =  0;
-   TACCTL0              =  0;
-   // reset timer
-   TAR                  = 0;
-   // record last timer compare value
-   bsp_timer_vars.last_compare_value =  0;
+void bsp_timer_setCompareCb(bsp_timer_cbt cb) {
+    bsp_timer_vars.compareCb      = cb;
 }
 
-/**
-\brief Schedule the callback to be called in some specified time.
-
-The delay is expressed relative to the last compare event. It doesn't matter
-how long it took to call this function after the last compare, the timer will
-expire precisely delayTicks after the last one.
-
-The only possible problem is that it took so long to call this function that
-the delay specified is shorter than the time already elapsed since the last
-compare. In that case, this function triggers the interrupt to fire right away.
-
-This means that the interrupt may fire a bit off, but this inaccuracy does not
-propagate to subsequent timers.
-
-\param delayTicks Number of ticks before the timer expired, relative to the
-                  last compare event.
-*/
-void bsp_timer_scheduleIn(PORT_TIMER_WIDTH delayTicks) {
-   PORT_TIMER_WIDTH newCompareValue;
-   PORT_TIMER_WIDTH temp_last_compare_value;
-   
-   temp_last_compare_value = bsp_timer_vars.last_compare_value;
-   
-   newCompareValue      =  bsp_timer_vars.last_compare_value+delayTicks;
-   bsp_timer_vars.last_compare_value   =  newCompareValue;
-   
-   if (delayTicks<TAR-temp_last_compare_value) {
-      // we're already too late, schedule the ISR right now, manually
-      
-      // setting the interrupt flag triggers an interrupt
-      TACCTL0          |=  CCIFG;
-   } else {
-      // this is the normal case, have timer expire at newCompareValue
-      TACCR0            =  newCompareValue;
-   }
-   // enable interrupts
-   TACCTL0             |=  CCIE;
+void bsp_timer_start(PORT_TIMER_WIDTH period){
+    // radio's SFD pin connected to P4.1
+    P4DIR   &= ~0x02; // input
+    P4SEL   |=  0x02; // in CCI1a/B mode
+    
+    // set CCRA0 registers
+    TACCR0   =  period-1;
+    
+    // CCR2 in compare mode (disabled for now)
+    TACCTL2  =  0;
+    TACCR2   =  0;
+    
+    //start TimerA
+    TACTL    =  TAIE+TACLR;    // interrupt when counter resets
+    TACTL   |=  MC_1+TASSEL_1; // up mode, from ACLK
 }
 
-/**
-\brief Cancel a running compare.
-*/
-void bsp_timer_cancel_schedule() {
-   TACCR0               =  0;
-   TACCTL0             &= ~CCIE;
-}
-
-/**
-\brief Return the current value of the timer's counter.
-
-\returns The current value of the timer's counter.
-*/
 PORT_TIMER_WIDTH bsp_timer_get_currentValue() {
-   return TBR;
+   return TAR;
+}
+
+void bsp_timer_setPeriod(PORT_TIMER_WIDTH period) {
+    TACCR0   =  period;
+}
+
+PORT_TIMER_WIDTH bsp_timer_getPeriod() {
+    return TACCR0;
+}
+
+//===== compare
+
+void bsp_timer_schedule(PORT_TIMER_WIDTH offset) {
+   // offset when to fire
+   TACCR2   =  offset;
+   
+   // enable compare interrupt (this also cancels any pending interrupts)
+   TACCTL2  =  CCIE;
+}
+
+void bsp_timer_cancel() {
+   // reset compare value (also resets interrupt flag)
+   TACCR2   =  0;
+   
+   // disable compare interrupt
+   TACCTL2 &= ~CCIE;
+}
+
+void bsp_timer_reset(){
+    TAR     = 0;
 }
 
 //=========================== private =========================================
@@ -130,8 +101,32 @@ PORT_TIMER_WIDTH bsp_timer_get_currentValue() {
 //=========================== interrup handlers ===============================
 
 kick_scheduler_t bsp_timer_isr() {
-   // call the callback
-   bsp_timer_vars.cb();
-   // kick the OS
-   return KICK_SCHEDULER;
+   PORT_RADIOTIMER_WIDTH taiv_local;
+   
+   // reading TAIV returns the value of the highest pending interrupt flag
+   // and automatically resets that flag. We therefore copy its value to the
+   // tbiv_local local variable exactly once. If there is more than one 
+   // interrupt pending, we will reenter this function after having just left
+   // it.
+   taiv_local = TAIV;
+   
+   switch (taiv_local) {
+      case 0x0002: // CCR1 fires
+         break;
+      case 0x0004: // CCR2 fires
+         if (bsp_timer_vars.compareCb!=NULL) {
+            bsp_timer_vars.compareCb();
+            // kick the OS
+            return KICK_SCHEDULER;
+         }
+         break;
+      case 0x000a: // timer overflow
+         if (bsp_timer_vars.overflowCb!=NULL) {
+            bsp_timer_vars.overflowCb();
+            // kick the OS
+            return KICK_SCHEDULER;
+         }
+         break;
+   }
+   return DO_NOT_KICK_SCHEDULER;
 }
