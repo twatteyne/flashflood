@@ -17,6 +17,7 @@ On TelosB, we use timerA0 for the bsp_timer module.
 typedef struct {
    bsp_timer_cbt    overflowCb;
    bsp_timer_cbt    compareCb;
+   bsp_timer_cbt    subtickCalculateCb;
    PORT_TIMER_WIDTH last_compare_value;
 } bsp_timer_vars_t;
 
@@ -45,6 +46,10 @@ void bsp_timer_setCompareCb(bsp_timer_cbt cb) {
     bsp_timer_vars.compareCb      = cb;
 }
 
+void bsp_timer_setSubtickCalculateCb(bsp_timer_cbt cb) {
+    bsp_timer_vars.subtickCalculateCb = cb;
+}
+
 void bsp_timer_start(PORT_TIMER_WIDTH period){
     // radio's SFD pin connected to P4.1
     P4DIR   &= ~0x02; // input
@@ -52,6 +57,10 @@ void bsp_timer_start(PORT_TIMER_WIDTH period){
     
     // set CCRA0 registers
     TACCR0   =  period-1;
+    
+    // CCR1 in compare mode (disabled for now)
+    TACCTL1  =  0;
+    TACCR1   =  0;
     
     // CCR2 in compare mode (disabled for now)
     TACCTL2  =  0;
@@ -75,6 +84,22 @@ PORT_TIMER_WIDTH bsp_timer_getPeriod() {
 }
 
 //===== compare
+
+void bsp_timer_schedule_subTickCalc(PORT_TIMER_WIDTH offset){
+   // offset when to fire
+   TACCR1   =  offset;
+   
+   // enable compare interrupt (this also cancels any pending interrupts)
+   TACCTL1  =  CCIE;
+}
+
+void bsp_timer_subTickCalc_cancel() {
+   // reset compare value (also resets interrupt flag)
+   TACCR1   =  0;
+   
+   // disable compare interrupt
+   TACCTL1 &= ~CCIE;
+}
 
 void bsp_timer_schedule(PORT_TIMER_WIDTH offset) {
    // offset when to fire
@@ -112,6 +137,11 @@ kick_scheduler_t bsp_timer_isr() {
    
    switch (taiv_local) {
       case 0x0002: // CCR1 fires
+         if (bsp_timer_vars.subtickCalculateCb!=NULL) {
+            bsp_timer_vars.subtickCalculateCb();
+            // kick the OS
+            return KICK_SCHEDULER;
+         }
          break;
       case 0x0004: // CCR2 fires
          if (bsp_timer_vars.compareCb!=NULL) {

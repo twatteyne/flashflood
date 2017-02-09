@@ -50,7 +50,7 @@
 #define PORT_delayRx                          0 // 0us (can not measure)
 
 //=== subTick calculation
-#define BSP_TIMER_PERIOD                     10  // 10@32kHz ~ 305us
+#define BSP_TIMER_PERIOD                     20  // 20@32kHz ~ 610us
 #define NEXT_PACKET_SCHEDULE                137  // PORT_TsSlotDuration-TxAutoAckTimeout-durationData(11,320us)
 #define SAMPLE_SET_SIZE                       5
 
@@ -133,6 +133,7 @@ app_vars_t app_vars;
 //=========================== prototypes ======================================
 
 // bsp level
+void bsp_timer_cb_subtickCalculate(void);
 void bsp_timer_cb_overflow(void);
 void bsp_timer_cb_compare(void);
 void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp);
@@ -146,7 +147,7 @@ kick_scheduler_t   radiotimer_isr(void);
 void increaseAsn(void);
 void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived, PORT_RADIOTIMER_WIDTH reference);
 
-void startSlot();
+void startCommunicating();
 void endSlot();
 
 // helper
@@ -173,6 +174,7 @@ int mote_main(void) {
     radio_setStartFrameCb(radiotimer_cb_startFrame);
     radio_setEndFrameCb(radiotimer_cb_endFrame);
     radiotimer_setCompareCb(radiotimer_cb_compareCb);
+    bsp_timer_setSubtickCalculateCb(bsp_timer_cb_subtickCalculate);
    
     // prepare radio
     radio_rfOn();
@@ -285,6 +287,7 @@ void radiotimer_cb_compareCb(void){
     case S_TXDATAREADY:
         app_vars.app_state = S_TXDATADELAY;
         radio_txNow();
+        app_vars.packetScheduled = 0;
         radiotimer_cancel();
         break;
     default:
@@ -293,19 +296,85 @@ void radiotimer_cb_compareCb(void){
     }
 }
 
+void bsp_timer_cb_subtickCalculate(void) {
+    if (
+        app_vars.app_state == S_RXDATA ||
+        app_vars.app_state == S_TXACK  ||
+        app_vars.app_state == S_TXACKDELAY
+    ){  // a SoF happended before, don't calculate this time
+        
+    } else {
+        calculateSubticks();
+    }
+}
+
+// start of slot
 void bsp_timer_cb_overflow(void) {
     if (app_vars.isSync){
           debugpins_slot_toggle();
           bsp_timer_setPeriod(PORT_TsSlotDuration);
           increaseAsn();
     }
-    if (app_vars.packetScheduled == 0){
+    if (app_vars.packetScheduled==0){
         // schedule bsp timer for calibrating SMCLK clock
-        app_vars.app_state = S_SUBTICK_CALC;
         radiotimer_reset();
-        bsp_timer_schedule(BSP_TIMER_PERIOD);
+        bsp_timer_schedule_subTickCalc(BSP_TIMER_PERIOD);
+    }
+    startCommunicating();
+}
+
+
+void startCommunicating(){
+    if (app_vars.isSync){
+        debugpins_fsm_toggle();
+        if (app_vars.isSrc){
+            if (app_vars.changeDetected){
+                app_vars.app_state = S_TXDATAPREPARE;
+                // schedule for sending packet
+                bsp_timer_schedule(TxOffset-PORT_delayTx);
+                // preparing Tx
+                app_vars.packet[2] = app_vars.lastDsn;
+                app_vars.lastDsn++;
+                app_vars.changeDetected = 0;
+            } else {
+                if (app_vars.packetScheduled==1){
+                    app_vars.app_state = S_TXDATAPREPARE;
+                } else {
+                    endSlot();
+                    return;
+                }
+            }
+        } else {
+            if (app_vars.packetScheduled==0){
+                app_vars.app_state = S_RXDATAPREPARE;
+                bsp_timer_schedule(TxOffset-TxGuardTime-RxCalibrationDelay);
+                radio_rxEnable();
+                app_vars.app_state = S_RXDATAREADY;
+                return;
+            } else {
+                app_vars.app_state = S_TXDATAPREPARE;
+            }
+        }
+                // flush rxfifo
+        cc2420_spiStrobe(CC2420_SFLUSHRX, &app_vars.cc2420_status);
+        // stop listening
+        radio_rfOff();
+        // start transmitting packet
+        radio_loadPacket(app_vars.packet,FRAME_LENGTH);
+        radio_txEnable();
+        app_vars.app_state = S_TXDATAREADY;
     } else {
-        startSlot();
+        if (
+            app_vars.app_state == S_RXDATA || 
+            app_vars.app_state == S_TXACK  || 
+            app_vars.app_state == S_TXACKDELAY
+        ){
+            // in the middle of receiving something right now
+            return;
+        }
+        // keep listening for packet
+        app_vars.app_state = S_RXDATALISTEN;
+        radio_rxNow();
     }
 }
 
@@ -313,10 +382,6 @@ void bsp_timer_cb_compare(void) {
     // toggle pin
     debugpins_fsm_toggle();
     switch (app_vars.app_state){
-    case S_SUBTICK_CALC:
-        calculateSubticks();
-        startSlot();
-        break;
     case S_TXDATAREADY:
         app_vars.app_state = S_TXDATADELAY;
         radio_txNow();
@@ -370,7 +435,10 @@ void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp){
         bsp_timer_schedule(timestamp+RxAckTimeout);
         break;
     case S_TXACKDELAY:
+        // record timestampe, this may in a reciving mode
+        app_vars.timeReceivedAck = timestamp;
         app_vars.app_state       = S_TXACK;
+        bsp_timer_schedule(timestamp+RxAckTimeout);
         break;
     default:
         // indicate error and endslot
@@ -389,6 +457,8 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
         // schedule the packet at next slot if ack has new dsn insdie
         // if not needed, cancel it later
         radiotimer_scheduleIn(app_vars.internalValue);
+        // cancel timeout timer
+        bsp_timer_cancel();
         // check received packet
         memset(&app_vars.packet,0,sizeof(app_vars.packet));
         // get packet from radio
@@ -421,8 +491,6 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
                     synchronizePacket(app_vars.timeReceivedAck,TxAckOffset);
                 } else {
                     synchronizePacket(app_vars.timeReceivedData,TxOffset);
-                    // no need to schedule data
-                    endSlot();
                 }
             } else {
                 // check whether this is first time heard the packet depending on dsn
@@ -443,19 +511,14 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
                     } else {
                         // synchronization
                         synchronizePacket(app_vars.timeReceivedData,TxOffset);
-                        // no need to schedule data packet
-                        endSlot();
                     }
                 } else {
                     // this is packet I heared or already relayed
                     app_vars.packetScheduled = 0;
-                    endSlot();
                 }
             }
-        } else {
-            // src never relay packet
-            endSlot();
         }
+        endSlot();
         break;
     case S_TXDATA:
         // after transmission, radio will turn to Rx itself
@@ -528,56 +591,6 @@ void synchronizePacket(PORT_RADIOTIMER_WIDTH timeReceived, PORT_RADIOTIMER_WIDTH
    // update as synced
    app_vars.isSync = 1;
    leds_sync_on();
-}
-
-void startSlot(){
-    if (app_vars.isSync){
-        debugpins_fsm_toggle();
-        if (app_vars.isSrc){
-            if (app_vars.changeDetected){
-                app_vars.app_state = S_TXDATAPREPARE;
-                // schedule for sending packet
-                bsp_timer_schedule(TxOffset-PORT_delayTx);
-                // preparing Tx
-                app_vars.packet[2] = app_vars.lastDsn;
-                app_vars.lastDsn++;
-                app_vars.changeDetected = 0;
-            } else {
-                if (app_vars.packetScheduled==1){
-                    app_vars.app_state = S_TXDATAPREPARE;
-                } else {
-                    endSlot();
-                    return;
-                }
-            }
-        } else {
-            if (app_vars.packetScheduled==0){
-                app_vars.app_state = S_RXDATAPREPARE;
-                bsp_timer_schedule(TxOffset-TxGuardTime-RxCalibrationDelay);
-                radio_rxEnable();
-                app_vars.app_state = S_RXDATAREADY;
-                return;
-            } else {
-                app_vars.app_state = S_TXDATAPREPARE;
-            }
-        }
-                // flush rxfifo
-        cc2420_spiStrobe(CC2420_SFLUSHRX, &app_vars.cc2420_status);
-        // stop listening
-        radio_rfOff();
-        // start transmitting packet
-        radio_loadPacket(app_vars.packet,FRAME_LENGTH);
-        radio_txEnable();
-        app_vars.app_state = S_TXDATAREADY;
-    } else {
-        if (app_vars.app_state == S_RXDATA ||app_vars.app_state == S_TXACK){
-            // in the middle of receiving something right now
-            return;
-        }
-        // keep listening for packet
-        app_vars.app_state = S_RXDATALISTEN;
-        radio_rxNow();
-    }
 }
 
 void endSlot(){
