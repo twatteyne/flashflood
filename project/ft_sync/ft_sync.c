@@ -22,17 +22,17 @@
 #define FRAME_LENGTH 2 + 1 + 2 + 2 + 2 
 
 //==== mote role
-#define SOURCE_ID                          0x16
-#define FIRST_HOP_1                        0xdd
-#define FIRST_HOP_2                        0x0f
-#define SECOND_HOP_1                       0x5e
-#define SECOND_HOP_2                       0x05
-#define DESTINATION_ID                     0x57
+#define SOURCE_ID                          0x57
+#define FIRST_HOP_1                        0x5e
+#define FIRST_HOP_2                        0x05
+#define SECOND_HOP_1                       0xdd
+#define SECOND_HOP_2                       0x16
+#define DESTINATION_ID                     0x0f
 
 //==== timing
 
 // time-slot related
-#define PORT_TsSlotDuration                 163 // 5000us 
+#define PORT_TsSlotDuration                 131 // 4000us 
 
 #define TxOffset                             65 // 2000us, when to tx data
 #define TxGuardTime                           5 // 151us, 
@@ -50,8 +50,8 @@
 #define PORT_delayRx                          0 // 0us (can not measure)
 
 //=== subTick calculation
-#define BSP_TIMER_PERIOD                     20  // 20@32kHz ~ 610us
-#define NEXT_PACKET_SCHEDULE                137  // PORT_TsSlotDuration-TxAutoAckTimeout-durationData(11,320us)
+#define BSP_TIMER_SCHEDULE                   30
+#define NEXT_PACKET_SCHEDULE                104 // PORT_TsSlotDuration-TxAckDelay-durationAck(5,180us)
 #define SAMPLE_SET_SIZE                       5
 
 //==== sync
@@ -61,10 +61,14 @@
 
 static  uint8_t cc2420_shortadr_cycle_1[2] = {0xaa,0xaa};
 static  uint8_t cc2420_shortadr_cycle_2[2] = {0xbb,0xbb};
+static  uint8_t cc2420_shortadr_cycle_3[2] = {0xcc,0xcc};
 static  uint8_t cc2420_panid_cycle_1[2]    = {0xaa,0xaa};
 static  uint8_t cc2420_panid_cycle_2[2]    = {0xbb,0xbb};
+static  uint8_t cc2420_panid_cycle_3[2]    = {0xcc,0xcc};
 static  uint8_t cc2420_ieeeadr_cycle_1[8]  = {0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa};
 static  uint8_t cc2420_ieeeadr_cycle_2[8]  = {0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb};
+static  uint8_t cc2420_ieeeadr_cycle_3[8]  = {0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc};
+
 typedef enum {
    S_SLEEP                   = 0x00,   // ready for next slot
    // synchronizing
@@ -98,6 +102,12 @@ typedef enum {
    S_SUBTICK_CALC            = 0x1a,   // subtick calculating
 } app_state_t;
 
+typedef enum {
+   S_IDLE    = 0x00,
+   S_START   = 0x01,
+   S_END     = 0x02
+}calculate_state_t;
+
 typedef struct {
     uint16_t asn0and1;
     uint16_t asn2and3;
@@ -127,6 +137,7 @@ typedef struct {
     uint16_t            internalValue;
     uint8_t             tickCounter_index;
     bool                packetScheduled;
+    calculate_state_t   calculate_state;
     
     uint8_t             cycleId;
     
@@ -221,7 +232,6 @@ int mote_main(void) {
     }
     
     if (
-        address[7]==DESTINATION_ID   ||
         address[7]==SECOND_HOP_1     ||
         address[7]==SECOND_HOP_2
     ) {
@@ -252,6 +262,35 @@ int mote_main(void) {
         app_vars.packet[8] = 0x00;
         app_vars.cycleId   = 0xbb;
     }
+    
+    if (address[7]==DESTINATION_ID){
+        // write short address
+        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_shortadr_cycle_3[0],
+                           2);
+        // write panId
+        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_panid_cycle_3[0],
+                           2);
+        // write 64-bit ieee address
+        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,
+                           &app_vars.cc2420_status,
+                           &cc2420_ieeeadr_cycle_3[0],
+                           8);
+                // fill packet
+        app_vars.packet[0] = FRAME_CONTROL_BYTE0; // fcf byte0
+        app_vars.packet[1] = FRAME_CONTROL_BYTE1; // fcf byte1
+//        app_vars.packet[2] = app_vars.lastDsn;    // fill it at beginning of each slot
+        app_vars.packet[3] = 0xcc;                // panId, LITTLE_ENDIAN
+        app_vars.packet[4] = 0xcc;                
+        app_vars.packet[5] = 0xcc;                // destAddr, LITTLE_ENDIAN
+        app_vars.packet[6] = 0xcc;                
+        app_vars.packet[7] = 0x00;                // reserved for crc
+        app_vars.packet[8] = 0x00;
+        app_vars.cycleId   = 0xcc;
+    }
    
     if (address[7]==SOURCE_ID){
         app_vars.isSrc   = 1;
@@ -281,11 +320,11 @@ int mote_main(void) {
 
 void calculateSubticks() {
     // record radtimer counter
-    app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index] = app_vars.radiotimerCounter/BSP_TIMER_PERIOD;
+    app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index] = app_vars.radiotimerCounter/BSP_TIMER_SCHEDULE;
     app_vars.tickCounter_index  = (app_vars.tickCounter_index+1)%SAMPLE_SET_SIZE;
     
     app_vars.internalValue  = averageArray(&app_vars.ticksAt5m2oneTickAt32k[0],SAMPLE_SET_SIZE);
-    app_vars.internalValue *= NEXT_PACKET_SCHEDULE;
+    app_vars.internalValue *= (NEXT_PACKET_SCHEDULE);
     app_vars.internalValue -= PORT_delayTx;
 }
 
@@ -308,15 +347,15 @@ void bsp_timer_cb_subtickCalculate(void) {
         app_vars.app_state == S_RXDATA ||
         app_vars.app_state == S_TXACK  ||
         app_vars.app_state == S_TXACKDELAY
-    ){  // a SoF happended before, don't calculate this time
-        
+    ){  
+        // a SoF happended before, don't calculate this time
+        return;
+    }
+    app_vars.radiotimerCounter = TBR;
+    if (app_vars.task==NULL){
+        app_vars.task = calculateSubticks;
     } else {
-        if (app_vars.task==NULL){
-            app_vars.radiotimerCounter = radiotimer_getValue();
-            app_vars.task = calculateSubticks;
-        } else {
-            // skip this time
-        }
+        // skip this time
     }
 }
 
@@ -324,8 +363,10 @@ void bsp_timer_cb_subtickCalculate(void) {
 void bsp_timer_cb_overflow(void) {
     if (app_vars.packetScheduled==0){
         // schedule bsp timer for calibrating SMCLK clock
-        radiotimer_reset();
-        bsp_timer_schedule_subTickCalc(BSP_TIMER_PERIOD);
+        app_vars.calculate_state = S_IDLE;
+        TBR=0;
+        bsp_timer_schedule_subTickCalc(BSP_TIMER_SCHEDULE);
+        
     }
     app_vars.task = startCommunicating;
 }
@@ -386,9 +427,11 @@ void startCommunicating(){
         app_vars.app_state = S_RXDATALISTEN;
         radio_rxNow();
     }
+    debugpins_fsm_toggle();
 }
 
 void bsp_timer_cb_compare(void) {
+    uint8_t packet_len;
     // toggle pin
     debugpins_fsm_toggle();
     switch (app_vars.app_state){
@@ -420,6 +463,45 @@ void bsp_timer_cb_compare(void) {
         break;
     case S_RXDATA:
         // rx data take too long
+        endSlot();
+        break;
+    case S_TXACK:
+        memset(&app_vars.packet,0,sizeof(app_vars.packet));
+        // get packet from radio
+        radio_getReceivedFrame(
+            app_vars.packet,
+            &packet_len,
+            sizeof(app_vars.packet),
+            &app_vars.rxpk_rssi,
+            &app_vars.rxpk_lqi,
+            &app_vars.rxpk_crc
+        );
+        if (packet_len==5){
+            // no possible
+        } else {
+            if (packet_len==9){
+                // this is data
+                if (
+                    app_vars.cycleId < app_vars.packet[3] &&
+                    app_vars.cycleId - app_vars.packet[3] > 0x11
+                ){
+                    app_vars.app_state = S_RXDATALISTEN;
+                    endSlot();
+                    return;
+                }
+            } else {
+                app_vars.app_state = S_RXDATALISTEN;
+                endSlot();
+                return;
+            }
+        }
+        if (app_vars.isSrc==0){
+            if (app_vars.isSync==0){
+                // update last dsn 
+                app_vars.lastDsn = app_vars.packet[2];  
+                synchronizePacket(app_vars.timeReceivedData,TxOffset);
+            }
+        }
         endSlot();
         break;
     default:
@@ -464,9 +546,10 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
     case S_TXACK:
         // this may be end of txack or rxack
       
-        // schedule the packet at next slot if ack has new dsn insdie
+        // schedule the packet at next slot if ack has new dsn inside
         // if not needed, cancel it later
         radiotimer_scheduleIn(app_vars.internalValue);
+        P6OUT ^=  0x40;
         // cancel timeout timer
         bsp_timer_cancel();
         // check received packet
@@ -481,12 +564,33 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
             &app_vars.rxpk_crc
         );
         if (packet_len==5){
+            // ---- this is a trick: start ----
+            if (app_vars.cycleId==0xcc){
+                // don't sync on ack
+                app_vars.app_state = S_RXDATALISTEN;
+                radiotimer_cancel();
+                return;
+            }
+            // ---- trick: end ----
             // this is Ack
             radio_rfOff();
+            
         } else {
-            // this is data
-            if (app_vars.cycleId != app_vars.packet[3]){
+            if (packet_len==9){
+                // this is data, no need for schedule data
+                radiotimer_cancel();
+                if (
+                    app_vars.cycleId < app_vars.packet[3] &&
+                    app_vars.cycleId - app_vars.packet[3] > 0x11
+                ){
+                    app_vars.app_state = S_RXDATALISTEN;
+                    endSlot();
+                    return;
+                }
+            } else {
                 app_vars.app_state = S_RXDATALISTEN;
+                radiotimer_cancel();
+                endSlot();
                 return;
             }
         }
@@ -525,8 +629,13 @@ void radiotimer_cb_endFrame(PORT_RADIOTIMER_WIDTH timestamp){
                 } else {
                     // this is packet I heared or already relayed
                     app_vars.packetScheduled = 0;
+                    radiotimer_cancel();
                 }
             }
+        } else {
+            // src doesn't schedule data
+            app_vars.packetScheduled = 0;
+            radiotimer_cancel();
         }
         endSlot();
         break;
