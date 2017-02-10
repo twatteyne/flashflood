@@ -50,6 +50,12 @@ int main(void) {
     P4DIR     |=  0x20;                           // [P4.5] radio VREG:  output
     P4DIR     |=  0x40;                           // [P4.6] radio reset: output
     
+    P6DIR |=  0x40;      // [P6.6]
+    P6DIR |=  0x80;      // [P6.7]
+    P2DIR |=  0x08;      // [P2.3]
+    P2DIR |=  0x40;      // [P2.6]
+    P3DIR |=  0x20;      // [P3.5]
+    
     timer_a_init();
     timer_b_init();
     spi_init();
@@ -149,6 +155,7 @@ int main(void) {
                            &app_vars.cc2420_status,
                            &cc2420_ieeeadr_cycle_2[0],
                            8);
+        app_vars.cycleId   = 0xbb;
     }
 
     if (app_vars.myId==DESTINATION_ID){
@@ -171,19 +178,21 @@ int main(void) {
     }
 
     //fcf is always the same
-    app_vars.packet[0] = FRAME_CONTROL_BYTE0; // fcf byte0
-    app_vars.packet[1] = FRAME_CONTROL_BYTE1; // fcf byte1
+    app_vars.packetTx[0] = FRAME_CONTROL_BYTE0; // fcf byte0
+    app_vars.packetTx[1] = FRAME_CONTROL_BYTE1; // fcf byte1
     for (i=0;i<4;i++){
-        app_vars.packet[i+3] = app_vars.cycleId; 
+        app_vars.packetTx[i+3] = app_vars.cycleId; 
     }
     radio_setFrequency(CHANNEL);
-    radio_loadPacket(app_vars.packet,FRAME_LENGTH);
-
+    radio_loadPacket(app_vars.packetTx,FRAME_LENGTH);
+    
     if (app_vars.myId==SOURCE_ID){
         // schedule timer for sending
         TACCR2   =  TAR+TIMER_A_PERIOD;
         TACCTL2  =  CCIE;
     }
+    
+    radio_rxNow();
 
     while (1) {
     }
@@ -196,17 +205,55 @@ void timer_a_cb_overflow(void) {
 void timer_a_cb_compare(void) {
     if (app_vars.myId==SOURCE_ID){
         cc2420_status_t cc2420_statusByte;
+        app_vars.currentDsn++;
+        cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
         // tx now
         cc2420_spiStrobe(CC2420_STXON, &cc2420_statusByte);
         TACCR2   =  TAR+TIMER_A_PERIOD;
         TACCTL2  =  CCIE;
     }
 }
+
 void timer_a_cb_subtickCalculate(uint16_t timestamp){
+    uint16_t offset = timestamp>>8;// divide by 128: TIMER_A_SUBTICK
+    timer_b_setOffset(offset*15);  // endOfAck needs 371us to finish, schedule a little more than this. 15 indicate 450us
 }
+
 void timer_b_cb_startFrame(uint16_t timestamp){
 }
 void timer_b_cb_endFrame(uint16_t timestamp){
+    uint8_t             packet_len;
+    cc2420_status_t     statusByte;
+    uint8_t             dsn;
+    
+    if (app_vars.myId == SOURCE_ID){
+         // cancel armed timer
+         TBCCR2   =  0;
+         TBCCTL2 &= ~CCIE;
+         return;
+    }
+    
+    // just read length
+    cc2420_spiReadRxFifo(&statusByte, &app_vars.packetRx[0], &packet_len, 9);
+    // whether CRC checked (bit 7)
+    app_vars.rxpk_crc = (app_vars.packetRx[packet_len-1]&0x80)>>7;
+    if (app_vars.rxpk_crc == 0 || packet_len!=ACK_LENGTH){
+         // cancel armed timer
+         TBCCR2   =  0;
+         TBCCTL2 &= ~CCIE;
+    } else {
+         dsn = app_vars.packetRx[2];
+        if (dsn <= app_vars.currentDsn){
+            TBCCR2   =  0;
+            TBCCTL2 &= ~CCIE;
+        } else {
+            app_vars.currentDsn = dsn;
+            // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
+            cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
+            P3OUT ^=  0x20;
+        }
+         
+    }
 }
 void timer_b_cb_compareCb(void){
 }

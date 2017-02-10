@@ -8,6 +8,9 @@
     <path>$WS_DIR$\ft_autoack\ft_autoack.ewp</path>
   </project>
   <project>
+    <path>$WS_DIR$\ft_noSlot\ft_noSlot.ewp</path>
+  </project>
+  <project>
     <path>$WS_DIR$\ft_sync\ft_sync.ewp</path>
   </project>
   <batchBuild/>
