@@ -107,13 +107,7 @@ ISR(USART1RX) {
 
 // TIMERA1_VECTOR
 
-ISR(TIMERA1) {
-   debugpins_isr_set();
-   if (bsp_timer_isr()==KICK_SCHEDULER) {        // timer: 1
-      __bic_SR_register_on_exit(CPUOFF);
-   }
-   debugpins_isr_clr();
-}
+
 
 // ADC12_VECTOR
 
@@ -132,14 +126,6 @@ ISR(USART0RX) {
 ISR(COMPARATORA) {
    debugpins_isr_set();
    __bic_SR_register_on_exit(CPUOFF);            // restart CPU
-   debugpins_isr_clr();
-}
-
-ISR(TIMERB1) {
-   debugpins_isr_set();
-   if (radiotimer_isr()==KICK_SCHEDULER) {       // radiotimer
-      __bic_SR_register_on_exit(CPUOFF);
-   }
    debugpins_isr_clr();
 }
 

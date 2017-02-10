@@ -160,3 +160,29 @@ kick_scheduler_t bsp_timer_isr() {
    }
    return DO_NOT_KICK_SCHEDULER;
 }
+
+#pragma vector = TIMERA1_VECTOR
+__interrupt void TIMERA1_ISR (void) {
+   PORT_RADIOTIMER_WIDTH taiv_local;
+   taiv_local = TAIV;
+   
+   if (taiv_local==0x0002) {
+      P6OUT |=  0x01;
+      bsp_timer_vars.subtickCalculateCb();
+   } else {
+      if (taiv_local==0x0004) {
+          P6OUT |=  0x01;
+          bsp_timer_vars.compareCb();
+      } else {
+          if (taiv_local==0x000a){
+              if (bsp_timer_vars.overflowCb!=NULL) {
+                  P6OUT |=  0x01;
+                  bsp_timer_vars.overflowCb();
+              }
+          } else {
+          }
+      }
+   }
+   P6OUT &= ~0x01;
+   __bic_SR_register_on_exit(CPUOFF);
+}

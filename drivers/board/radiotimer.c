@@ -150,3 +150,32 @@ kick_scheduler_t radiotimer_isr() {
    }
    return DO_NOT_KICK_SCHEDULER;
 }
+
+#pragma vector = TIMERB1_VECTOR
+__interrupt void TIMERB1_ISR (void) {
+   PORT_RADIOTIMER_WIDTH tbiv_local;
+   tbiv_local = TBIV;
+   if (tbiv_local==0x0002){
+        if (TBCCTL1 & CCI) {
+             P6OUT |=  0x01;
+             radiotimer_vars.startFrameCb(TAR);
+             radiotimer_vars.f_SFDreceived = 1;
+        } else {
+             if (radiotimer_vars.f_SFDreceived == 1) {
+                 P6OUT |=  0x01;
+                 radiotimer_vars.endFrameCb(TAR);
+                 radiotimer_vars.f_SFDreceived = 0;
+             }
+             TBCCTL1 &= ~COV;
+             TBCCTL1 &= ~CCIFG;
+        }
+   } else {
+        if (tbiv_local==0x0004){
+            P6OUT |=  0x01;
+            radiotimer_vars.compareCb();
+        } else {
+        }
+   }
+   P6OUT &= ~0x01;
+   __bic_SR_register_on_exit(CPUOFF);
+}
