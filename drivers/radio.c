@@ -81,16 +81,6 @@ void radio_loadPacket(uint8_t* packet, uint16_t len) {
    radio_vars.state = RADIOSTATE_PACKET_LOADED;
 }
 
-void radio_txEnable(void) {
-   // change state
-   radio_vars.state = RADIOSTATE_ENABLING_TX;
-   
-   // I don't fully understand how the CC2420_STXCA the can be used here.
-   
-   // change state
-   radio_vars.state = RADIOSTATE_TX_ENABLED;
-}
-
 void radio_txNow(void) {
    // change state
    radio_vars.state = RADIOSTATE_TRANSMITTING;
@@ -99,11 +89,6 @@ void radio_txNow(void) {
 }
 
 //===== RX
-
-void radio_rxEnable(void) {
-   // change state
-   radio_vars.state = RADIOSTATE_ENABLING_RX;
-}
 
 void radio_rxNow(void) {
   // change state

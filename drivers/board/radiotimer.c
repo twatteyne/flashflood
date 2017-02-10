@@ -93,64 +93,6 @@ PORT_RADIOTIMER_WIDTH radiotimer_getValue() {
 //=========================== private =========================================
 
 //=========================== interrupt handlers ==============================
-
-/**
-\brief TimerB CCR1-6 interrupt service routine
-*/
-kick_scheduler_t radiotimer_isr() {
-   PORT_RADIOTIMER_WIDTH tbiv_local;
-   
-   // reading TBIV returns the value of the highest pending interrupt flag
-   // and automatically resets that flag. We therefore copy its value to the
-   // tbiv_local local variable exactly once. If there is more than one 
-   // interrupt pending, we will reenter this function after having just left
-   // it.
-   tbiv_local = TBIV;
-   
-   switch (tbiv_local) {
-      case 0x0002: // CCR1 fires
-         if (TBCCTL1 & CCI) {
-            // SFD pin is high: this was the start of a frame
-            if (radiotimer_vars.startFrameCb!=NULL) {
-               radiotimer_vars.startFrameCb(TAR);
-               radiotimer_vars.f_SFDreceived = 1;
-               // kick the OS
-               return KICK_SCHEDULER;
-            }
-         } else {
-            // SFD pin is low: this was the end of a frame
-            if (radiotimer_vars.endFrameCb!=NULL) {
-               if (radiotimer_vars.f_SFDreceived == 1) {
-                  radiotimer_vars.endFrameCb(TAR);
-                  radiotimer_vars.f_SFDreceived = 0;
-               }
-               TBCCTL1 &= ~COV;
-               TBCCTL1 &= ~CCIFG;
-               // kick the OS
-               return KICK_SCHEDULER;
-            }
-         }
-         break;
-      case 0x0004: // CCR2 fires
-          if (radiotimer_vars.compareCb!=NULL){
-              radiotimer_vars.compareCb();
-          }
-          return KICK_SCHEDULER;
-         break;
-      case 0x0006: // CCR3 fires
-         break;
-      case 0x0008: // CCR4 fires
-         break;
-      case 0x000a: // CCR5 fires
-         break;
-      case 0x000c: // CCR6 fires
-         break;
-      case 0x000e: // timer overflow
-         break;
-   }
-   return DO_NOT_KICK_SCHEDULER;
-}
-
 #pragma vector = TIMERB1_VECTOR
 __interrupt void TIMERB1_ISR (void) {
    PORT_RADIOTIMER_WIDTH tbiv_local;

@@ -17,7 +17,7 @@ On TelosB, we use timerA0 for the bsp_timer module.
 typedef struct {
    bsp_timer_cbt    overflowCb;
    bsp_timer_cbt    compareCb;
-   bsp_timer_cbt    subtickCalculateCb;
+   bsp_timer_subtick_cbt    subtickCalculateCb;
    PORT_TIMER_WIDTH last_compare_value;
 } bsp_timer_vars_t;
 
@@ -46,7 +46,7 @@ void bsp_timer_setCompareCb(bsp_timer_cbt cb) {
     bsp_timer_vars.compareCb      = cb;
 }
 
-void bsp_timer_setSubtickCalculateCb(bsp_timer_cbt cb) {
+void bsp_timer_setSubtickCalculateCb(bsp_timer_subtick_cbt cb) {
     bsp_timer_vars.subtickCalculateCb = cb;
 }
 
@@ -125,50 +125,16 @@ void bsp_timer_reset(){
 
 //=========================== interrup handlers ===============================
 
-kick_scheduler_t bsp_timer_isr() {
-   PORT_RADIOTIMER_WIDTH taiv_local;
-   
-   // reading TAIV returns the value of the highest pending interrupt flag
-   // and automatically resets that flag. We therefore copy its value to the
-   // tbiv_local local variable exactly once. If there is more than one 
-   // interrupt pending, we will reenter this function after having just left
-   // it.
-   taiv_local = TAIV;
-   
-   switch (taiv_local) {
-      case 0x0002: // CCR1 fires
-         if (bsp_timer_vars.subtickCalculateCb!=NULL) {
-            bsp_timer_vars.subtickCalculateCb();
-            // kick the OS
-            return KICK_SCHEDULER;
-         }
-         break;
-      case 0x0004: // CCR2 fires
-         if (bsp_timer_vars.compareCb!=NULL) {
-            bsp_timer_vars.compareCb();
-            // kick the OS
-            return KICK_SCHEDULER;
-         }
-         break;
-      case 0x000a: // timer overflow
-         if (bsp_timer_vars.overflowCb!=NULL) {
-            bsp_timer_vars.overflowCb();
-            // kick the OS
-            return KICK_SCHEDULER;
-         }
-         break;
-   }
-   return DO_NOT_KICK_SCHEDULER;
-}
-
 #pragma vector = TIMERA1_VECTOR
 __interrupt void TIMERA1_ISR (void) {
    PORT_RADIOTIMER_WIDTH taiv_local;
+   PORT_RADIOTIMER_WIDTH timestamp;
+   timestamp  = TBR;
    taiv_local = TAIV;
    
    if (taiv_local==0x0002) {
       P6OUT |=  0x01;
-      bsp_timer_vars.subtickCalculateCb();
+      bsp_timer_vars.subtickCalculateCb(TBR);
    } else {
       if (taiv_local==0x0004) {
           P6OUT |=  0x01;

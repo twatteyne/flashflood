@@ -27,7 +27,7 @@ void timer_a_init() {
     P4SEL   |=  0x02; // in CCI1a/B mode
     
     // set CCRA0 registers
-    TACCR0   =  0xffff;
+    TACCR0   =  0;
     
     // CCR1 in compare mode (disabled for now)
     TACCTL1  =  0;
@@ -39,7 +39,7 @@ void timer_a_init() {
     
     //start TimerA
     TACTL    =  TAIE+TACLR;    // interrupt when counter resets
-    TACTL   |=  MC_1+TASSEL_1; // up mode, from ACLK
+    TACTL   |=  MC_2+TASSEL_1; // continue mode, from ACLK
 }
 
 void timer_a_setOverflowCb(timer_a_cbt cb) {
@@ -62,8 +62,9 @@ __interrupt void TIMERA1_ISR (void) {
    uint16_t timestamp;
    timestamp  = TBR;
    taiv_local = TAIV;
-   
+   P2OUT |=  0x08;
    if (taiv_local==0x0002) {
+      P2OUT &= ~0x40;
       timer_a_vars.subtickCalculateCb(timestamp);
    } else {
       if (taiv_local==0x0004) {
@@ -71,12 +72,12 @@ __interrupt void TIMERA1_ISR (void) {
       } else {
           if (taiv_local==0x000a){
               if (timer_a_vars.overflowCb!=_NULL) {
-                  P6OUT |=  0x01;
                   timer_a_vars.overflowCb();
-              }
+              } 
           } else {
           }
       }
    }
+   P2OUT &= ~0x08;
    __bic_SR_register_on_exit(CPUOFF);
 }

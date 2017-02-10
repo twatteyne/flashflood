@@ -43,10 +43,8 @@ void     radio_rfOn(void);
 void     radio_rfOff(void);
 // TX
 void     radio_loadPacket(uint8_t* packet, uint16_t len);
-void     radio_txEnable(void);
 void     radio_txNow(void);
 // RX
-void     radio_rxEnable(void);
 void     radio_rxNow(void);
 void     radio_getReceivedFrame(uint8_t* bufRead,
                                 uint8_t* lenRead,

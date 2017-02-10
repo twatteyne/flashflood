@@ -14,7 +14,6 @@
 #include "bsp_timer.h"
 #include "radio.h"
 #include "radiotimer.h"
-#include "ft_sync.h"
 
 //=========================== variables =======================================
 
@@ -78,63 +77,3 @@ void board_sleep() {
 void board_reset() {
    WDTCTL = (WDTPW+0x1200) + WDTHOLD; // writing a wrong watchdog password to causes handler to reset
 }
-
-//=========================== private =========================================
-
-//=========================== interrupt handlers ==============================
-
-// DACDMA_VECTOR
-
-// PORT2_VECTOR
-
-ISR(USART1TX){
-   debugpins_isruarttx_set();
-   if (uart_tx_isr()==KICK_SCHEDULER) {          // UART; TX
-      __bic_SR_register_on_exit(CPUOFF);
-   }
-   debugpins_isruarttx_clr();
-}
-
-ISR(USART1RX) {
-   debugpins_isruartrx_set();
-   if (uart_rx_isr()==KICK_SCHEDULER) {          // UART: RX
-      __bic_SR_register_on_exit(CPUOFF);
-   }
-   debugpins_isruartrx_clr();
-}
-
-// PORT1_VECTOR
-
-// TIMERA1_VECTOR
-
-
-
-// ADC12_VECTOR
-
-// USART0TX_VECTOR
-
-ISR(USART0RX) {
-   debugpins_isr_set();
-   if (spi_isr()==KICK_SCHEDULER) {              // SPI
-      __bic_SR_register_on_exit(CPUOFF);
-   }
-   debugpins_isr_clr();
-}
-
-// WDT_VECTOR
-
-ISR(COMPARATORA) {
-   debugpins_isr_set();
-   __bic_SR_register_on_exit(CPUOFF);            // restart CPU
-   debugpins_isr_clr();
-}
-
-ISR(PORT2) {
-    P2IFG &= ~0x80;                               // clear the interrupt flag
-    ft_sync_changeDetected();
-}
-
-// TIMERB0_VECTOR
-
-// NMI_VECTOR
-

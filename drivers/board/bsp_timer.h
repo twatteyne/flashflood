@@ -20,6 +20,7 @@
 //=========================== typedef =========================================
 
 typedef void (*bsp_timer_cbt)(void);
+typedef void (*bsp_timer_subtick_cbt)(PORT_TIMER_WIDTH timestamp);
 
 //=========================== variables =======================================
 
@@ -39,7 +40,7 @@ PORT_TIMER_WIDTH   bsp_timer_getPeriod();
 
 void               bsp_timer_setOverflowCb(bsp_timer_cbt cb);
 void               bsp_timer_setCompareCb(bsp_timer_cbt cb);
-void               bsp_timer_setSubtickCalculateCb(bsp_timer_cbt cb);
+void               bsp_timer_setSubtickCalculateCb(bsp_timer_subtick_cbt cb);
 
 // interrupt handlers
 kick_scheduler_t   bsp_timer_isr(void);
