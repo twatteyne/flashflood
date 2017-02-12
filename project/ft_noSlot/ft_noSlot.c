@@ -218,6 +218,7 @@ void timer_a_cb_compare(void) {
 void timer_a_cb_subtickCalculate(uint16_t timestamp){
     uint16_t offset = timestamp>>8;// divide by 256: TIMER_A_SUBTICK
     timer_b_setOffset(offset*17);  // endOfAck needs 420us to finish, schedule a little more than this. 17 indicate 510us
+    app_vars.subticks = offset*17;
 }
 
 void timer_b_cb_startFrame(uint16_t timestamp){
@@ -253,7 +254,8 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
             // turn radio off
             cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
-            timer_b_setPacketTobeSent();
+            TBCCR2   =  timestamp+app_vars.subticks;
+            TBCCTL2  =  CCIE;
             P3OUT ^=  0x20;
         }
          

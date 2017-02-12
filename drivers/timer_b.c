@@ -74,8 +74,6 @@ __interrupt void TIMERB1_ISR (void) {
    cc2420_status_t statusByte;
    tbiv_local = TBIV;
    
-   TBCCR2   =  TBCCR1+timer_b_vars.offset;
-   TBCCTL2  =  CCIE;
    P6OUT |=  0x40;
    // for calculating subticks, cancel it later if this is not overflow
    TACCR1  =  TAR+TIMER_A_SUBTICK;
@@ -86,7 +84,6 @@ __interrupt void TIMERB1_ISR (void) {
         // send out data
         cc2420_spiStrobe(CC2420_STXON, &statusByte);
         P6OUT &= ~0x80;
-        timer_b_vars.packetTobeSent = 0;
         TACCTL1  =  0;
         TACCR1  &= ~CCIE;
    } else {
@@ -94,17 +91,10 @@ __interrupt void TIMERB1_ISR (void) {
             if (TBCCTL1 & CCI) {
                  timer_b_vars.startFrameCb(TBCCR1);
                  timer_b_vars.f_SFDreceived = 1;
-                 // cancel
-                 TBCCR2   =  0;
-                 TBCCTL2 &= ~CCIE;
             } else {
                  if (timer_b_vars.f_SFDreceived == 1) {
                      timer_b_vars.endFrameCb(TBCCR1);
                      timer_b_vars.f_SFDreceived = 0;
-                 } else {
-                      // cancel
-                      TBCCR2   =  0;
-                      TBCCTL2 &= ~CCIE;
                  }
                  TBCCTL1 &= ~COV;
                  TBCCTL1 &= ~CCIFG;
@@ -115,17 +105,9 @@ __interrupt void TIMERB1_ISR (void) {
             if (tbiv_local==0x000e){
                 //overflow, don't cancel CCR1 on timer A
                 P2OUT |= 0x40; 
-                if (timer_b_vars.packetTobeSent==0){
-                    // cancel
-                    TBCCR2   =  0;
-                    TBCCTL2 &= ~CCIE;
-                }
             } else {
                 TACCTL1  =  0;
                 TACCR1  &= ~CCIE;
-                // cancel
-                TBCCR2   =  0;
-                TBCCTL2 &= ~CCIE;
             }
        }
    }
