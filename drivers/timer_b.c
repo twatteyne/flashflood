@@ -75,17 +75,12 @@ __interrupt void TIMERB1_ISR (void) {
    tbiv_local = TBIV;
    
    P6OUT |=  0x40;
-   // for calculating subticks, cancel it later if this is not overflow
-   TACCR1  =  TAR+TIMER_A_SUBTICK;
-   TACCTL1 =  CCIE;
    
    if (tbiv_local==0x0004){
         P6OUT |=  0x80;
         // send out data
         cc2420_spiStrobe(CC2420_STXON, &statusByte);
         P6OUT &= ~0x80;
-        TACCTL1  =  0;
-        TACCR1  &= ~CCIE;
    } else {
        if (tbiv_local==0x0002){
             if (TBCCTL1 & CCI) {
@@ -99,15 +94,13 @@ __interrupt void TIMERB1_ISR (void) {
                  TBCCTL1 &= ~COV;
                  TBCCTL1 &= ~CCIFG;
             }
-            TACCTL1  =  0;
-            TACCR1  &= ~CCIE;
        } else {
             if (tbiv_local==0x000e){
                 //overflow, don't cancel CCR1 on timer A
                 P2OUT |= 0x40; 
-            } else {
-                TACCTL1  =  0;
-                TACCR1  &= ~CCIE;
+                // for calculating subticks, cancel it later if this is not overflow
+                TACCR1  =  TAR+TIMER_A_SUBTICK_OFFSET;
+                TACCTL1 =  CCIE;
             }
        }
    }

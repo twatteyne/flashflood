@@ -48,6 +48,8 @@ typedef struct {
     uint8_t             myId;
     uint8_t             currentDsn;
     uint16_t            subticks;
+    uint16_t            timerStartAt;
+    uint8_t             isBusyCalculating;
     uint8_t             cycleId;
 } app_vars_t;
 
