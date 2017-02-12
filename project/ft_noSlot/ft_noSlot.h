@@ -13,11 +13,27 @@
 
 //==== mote role
 #define SOURCE_ID                          0x0f
-#define FIRST_HOP_1                        0xdd
-#define FIRST_HOP_2                        0x16
-#define SECOND_HOP_1                       0x11
-#define SECOND_HOP_2                       0x11
-#define DESTINATION_ID                     0x11
+#define FIRST_HOP_1                        0x05
+#define FIRST_HOP_2                        0x5e
+#define SECOND_HOP_1                       0x16
+#define SECOND_HOP_2                       0x57
+#define DESTINATION_ID                     0xdd
+
+// linear two hop: 0f->dd->16
+//#define SOURCE_ID                          0x0f
+//#define FIRST_HOP_1                        0xdd
+//#define FIRST_HOP_2                        0x5e
+//#define SECOND_HOP_1                       0x16
+//#define SECOND_HOP_2                       0x11
+//#define DESTINATION_ID                     0x11
+
+// one hop
+//#define SOURCE_ID                          0x57
+//#define FIRST_HOP_1                        0xdd
+//#define FIRST_HOP_2                        0x16
+//#define SECOND_HOP_1                       0x11
+//#define SECOND_HOP_2                       0x11
+//#define DESTINATION_ID                     0x11
 
 #define TIMER_A_PERIOD                    32768 // 1s
 
@@ -31,7 +47,7 @@ typedef struct {
     uint8_t             packetRx[FRAME_LENGTH];
     uint8_t             myId;
     uint8_t             currentDsn;
-    uint8_t             subticks;
+    uint16_t            subticks;
     uint8_t             cycleId;
 } app_vars_t;
 
