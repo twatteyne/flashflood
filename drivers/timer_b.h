@@ -23,6 +23,7 @@ void     timer_b_setStartFrameCb(timer_b_capture_cbt cb);
 void     timer_b_setEndFrameCb(timer_b_capture_cbt cb);
 
 void     timer_b_setOffset(uint16_t offset);
+void     timer_b_setPacketTobeSent();
 
 /**
 \}

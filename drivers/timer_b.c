@@ -17,6 +17,7 @@ typedef struct {
    timer_b_capture_cbt    endFrameCb;
    uint8_t                f_SFDreceived;
    uint16_t               offset;
+   uint8_t                packetTobeSent;
 } timer_b_vars_t;
 
 timer_b_vars_t timer_b_vars;
@@ -60,6 +61,10 @@ void timer_b_setOffset(uint16_t offset){
     timer_b_vars.offset = offset;
 }
 
+void timer_b_setPacketTobeSent(){
+    timer_b_vars.packetTobeSent = 1;
+}
+
 //=========================== private =========================================
 
 //=========================== interrupt handlers ==============================
@@ -83,7 +88,7 @@ __interrupt void TIMERB1_ISR (void) {
         // send out data
         cc2420_spiStrobe(CC2420_STXON, &statusByte);
         P6OUT &= ~0x80;
-            
+        timer_b_vars.packetTobeSent = 0;
         TACCTL1  =  0;
         TACCR1  &= ~CCIE;
    } else {
@@ -112,13 +117,18 @@ __interrupt void TIMERB1_ISR (void) {
             if (tbiv_local==0x000e){
                 //overflow, don't cancel CCR1 on timer A
                 P2OUT |= 0x40; 
+                if (timer_b_vars.packetTobeSent==0){
+                    // cancel
+                    TBCCR2   =  0;
+                    TBCCTL2 &= ~CCIE;
+                }
             } else {
                 TACCTL1  =  0;
                 TACCR1  &= ~CCIE;
+                // cancel
+                TBCCR2   =  0;
+                TBCCTL2 &= ~CCIE;
             }
-            // cancel
-            TBCCR2   =  0;
-            TBCCTL2 &= ~CCIE;
        }
    }
    P6OUT &= ~0x40;

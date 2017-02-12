@@ -242,7 +242,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
          TBCCR2   =  0;
          TBCCTL2 &= ~CCIE;
     } else {
-         dsn = app_vars.packetRx[2];
+        dsn = app_vars.packetRx[2];
         if (dsn <= app_vars.currentDsn){
             TBCCR2   =  0;
             TBCCTL2 &= ~CCIE;
@@ -250,6 +250,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             app_vars.currentDsn = dsn;
             // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
             cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
+            // turn radio off
+            cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
+            timer_b_setPacketTobeSent();
             P3OUT ^=  0x20;
         }
          
