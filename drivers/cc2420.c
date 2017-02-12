@@ -95,7 +95,7 @@ void cc2420_spiWriteFifo(cc2420_status_t* statusRead, uint8_t* bufToWrite, uint8
    );
 }
 
-void cc2420_spiReadRxFifo(cc2420_status_t* statusRead,
+void cc2420_spiReadRxFifo_length(cc2420_status_t* statusRead,
                          uint8_t*         pBufRead,
                          uint8_t*         pLenRead,
                          uint8_t          maxBufLen) {
@@ -117,40 +117,12 @@ void cc2420_spiReadRxFifo(cc2420_status_t* statusRead,
       spi_rx_buffer,              // bufRx
       sizeof(spi_rx_buffer),      // maxLenBufRx
       SPI_FIRST,                  // isFirst
-      SPI_NOTLAST                 // isLast
+      SPI_LAST                    // isLast
    );
    
    *statusRead          = *(cc2420_status_t*)&spi_rx_buffer[0];
    *pLenRead            = spi_rx_buffer[1];
    
-   if (*pLenRead>2 && *pLenRead<=127) {
-      // valid length
-      
-      //read packet
-      spi_txrx(
-         spi_tx_buffer,           // bufTx
-         *pLenRead,               // lenbufTx
-         SPI_BUFFER,              // returnType
-         pBufRead,                // bufRx
-         125,                     // maxLenBufRx
-         SPI_NOTFIRST,            // isFirst
-         SPI_LAST                 // isLast
-      );
-      
-   } else {
-      // invalid length
-      
-      // read a just byte to close spi
-      spi_txrx(
-         spi_tx_buffer,           // bufTx
-         1,                       // lenbufTx
-         SPI_BUFFER,              // returnType
-         spi_rx_buffer,           // bufRx
-         sizeof(spi_rx_buffer),   // maxLenBufRx
-         SPI_NOTFIRST,            // isFirst
-         SPI_LAST                 // isLast
-      );
-   }
    /*
    A SFLUSHRX command strobe is required 
    after an RXFIFO overflow to enable 

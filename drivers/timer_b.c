@@ -80,6 +80,8 @@ __interrupt void TIMERB1_ISR (void) {
         P6OUT |=  0x80;
         // send out data
         cc2420_spiStrobe(CC2420_STXON, &statusByte);
+        TBCCR2   =  0;
+        TBCCTL2 &= ~CCIE;
         P6OUT &= ~0x80;
    } else {
        if (tbiv_local==0x0002){

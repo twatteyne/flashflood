@@ -51,6 +51,7 @@ typedef struct {
     uint16_t            timerStartAt;
     uint8_t             isBusyCalculating;
     uint8_t             cycleId;
+    uint8_t             needScedule;
 } app_vars_t;
 
 //=========================== prototype =======================================

@@ -226,8 +226,8 @@ void timer_a_cb_subtickCalculate(uint16_t timestamp){
         app_vars.isBusyCalculating = 1;
     } else {
         uint16_t offset = (timestamp-app_vars.timerStartAt)>>8;// divide by 256: TIMER_A_SUBTICK
-        // endOfAck needs 420us to finish, schedule a little more than this. 17 indicate 510us
-        app_vars.subticks = offset*17;
+        // endOfAck needs 56us to finish, schedule a little more than this. 5 indicate 150us
+        app_vars.subticks = offset*3;
         app_vars.isBusyCalculating = 0;
     }
 }
@@ -246,30 +246,29 @@ void timer_b_cb_endFrame(uint16_t timestamp){
          return;
     }
     
+    if (app_vars.needScedule==1){
+        TBCCR2   =  timestamp+app_vars.subticks;
+        TBCCTL2  =  CCIE;
+        // turn radio off
+        cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
+        app_vars.needScedule = 0;
+        P3OUT ^=  0x20;
+        return;
+    }
+    
     // just read length
-    cc2420_spiReadRxFifo(&statusByte, &app_vars.packetRx[0], &packet_len, 9);
-    // whether CRC checked (bit 7)
-    app_vars.rxpk_crc = (app_vars.packetRx[packet_len-1]&0x80)>>7;
-    if (app_vars.rxpk_crc == 0 || packet_len!=ACK_LENGTH){
-         // cancel armed timer
-         TBCCR2   =  0;
-         TBCCTL2 &= ~CCIE;
-    } else {
-        dsn = app_vars.packetRx[2];
-        if (dsn <= app_vars.currentDsn){
-            TBCCR2   =  0;
-            TBCCTL2 &= ~CCIE;
-        } else {
-            app_vars.currentDsn = dsn;
-            // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
-            cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
-            // turn radio off
-            cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
-            TBCCR2   =  timestamp+app_vars.subticks;
-            TBCCTL2  =  CCIE;
-            P3OUT ^=  0x20;
-        }
-         
+    cc2420_spiReadRxFifo_length(&statusByte, &app_vars.packetRx[0], &packet_len, 9);
+    cc2420_spiReadRam(0x0081,&app_vars.cc2420_status,&app_vars.packetRx[1],3);
+    if (app_vars.packetRx[1]==FRAME_CONTROL_BYTE0 && app_vars.packetRx[2]==FRAME_CONTROL_BYTE1){
+      dsn = app_vars.packetRx[3];
+      if (dsn > app_vars.currentDsn){
+          app_vars.currentDsn = dsn;
+          if (packet_len!=9){
+              // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
+              cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
+              app_vars.needScedule=1;
+          }
+      }
     }
 }
 void timer_b_cb_compareCb(void){
