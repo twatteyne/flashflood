@@ -6,6 +6,7 @@
 //=========================== define ==========================================
 
 #define TIMER_A_SUBTICK                     256
+#define TIMER_A_SUBTICK_OFFSET              100
 
 //=========================== typedef =========================================
 
@@ -24,7 +25,8 @@ void     timer_b_setEndFrameCb(timer_b_capture_cbt cb);
 
 void     timer_b_setOffset(uint16_t offset);
 void     timer_b_setPacketTobeSent();
-
+uint8_t  timer_b_getPacketTobeSent();
+uint16_t timer_b_getSubticksTimerStartAt();
 /**
 \}
 \}

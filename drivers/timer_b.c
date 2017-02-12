@@ -18,6 +18,7 @@ typedef struct {
    uint8_t                f_SFDreceived;
    uint16_t               offset;
    uint8_t                packetTobeSent;
+   uint16_t               subticksTimerStartAt;
 } timer_b_vars_t;
 
 timer_b_vars_t timer_b_vars;
@@ -65,6 +66,13 @@ void timer_b_setPacketTobeSent(){
     timer_b_vars.packetTobeSent = 1;
 }
 
+uint8_t  timer_b_getPacketTobeSent(){
+    return timer_b_vars.packetTobeSent;
+}
+
+uint16_t timer_b_getSubticksTimerStartAt(){
+    return timer_b_vars.subticksTimerStartAt;
+}
 //=========================== private =========================================
 
 //=========================== interrupt handlers ==============================
@@ -80,8 +88,10 @@ __interrupt void TIMERB1_ISR (void) {
    TBCCTL2  =  CCIE;
    P6OUT |=  0x40;
    // for calculating subticks, cancel it later if this is not overflow
-   TACCR1  =  TAR+TIMER_A_SUBTICK;
+   TACCR1  =  TAR+TIMER_A_SUBTICK_OFFSET;
    TACCTL1 =  CCIE;
+   
+   timer_b_vars.subticksTimerStartAt = TACCR1;
    
    if (tbiv_local==0x0004){
         P6OUT |=  0x80;
