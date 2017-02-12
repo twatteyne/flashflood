@@ -216,16 +216,8 @@ void timer_a_cb_compare(void) {
 
 // for calculating sub ticks
 void timer_a_cb_subtickCalculate(uint16_t timestamp){
-    if (app_vars.subticks==0){
-        app_vars.subticks = timestamp;
-        TACCR1  =  timer_b_getSubticksTimerStartAt()+TIMER_A_SUBTICK;
-        TACCTL1 =  CCIE;
-    } else {
-        app_vars.subticks = timestamp - app_vars.subticks;
-        uint16_t offset = app_vars.subticks>>8;// divide by 256: TIMER_A_SUBTICK
-        timer_b_setOffset(offset*17);  // endOfAck needs 420us to finish, schedule a little more than this. 17 indicate 510us
-        app_vars.subticks = 0;
-    }
+    uint16_t offset = timestamp>>8;// divide by 256: TIMER_A_SUBTICK
+    timer_b_setOffset(offset*17);  // endOfAck needs 420us to finish, schedule a little more than this. 17 indicate 510us
 }
 
 void timer_b_cb_startFrame(uint16_t timestamp){
