@@ -71,12 +71,10 @@ void timer_b_setPacketTobeSent(){
 #pragma vector = TIMERB1_VECTOR
 __interrupt void TIMERB1_ISR (void) {
    uint16_t tbiv_local;
-   uint16_t timestamp;
    cc2420_status_t statusByte;
-   timestamp  = TBR;
    tbiv_local = TBIV;
    
-   TBCCR2   =  timestamp+timer_b_vars.offset;
+   TBCCR2   =  TBCCR1+timer_b_vars.offset;
    TBCCTL2  =  CCIE;
    P6OUT |=  0x40;
    // for calculating subticks, cancel it later if this is not overflow
@@ -94,14 +92,14 @@ __interrupt void TIMERB1_ISR (void) {
    } else {
        if (tbiv_local==0x0002){
             if (TBCCTL1 & CCI) {
-                 timer_b_vars.startFrameCb(timestamp);
+                 timer_b_vars.startFrameCb(TBCCR1);
                  timer_b_vars.f_SFDreceived = 1;
                  // cancel
                  TBCCR2   =  0;
                  TBCCTL2 &= ~CCIE;
             } else {
                  if (timer_b_vars.f_SFDreceived == 1) {
-                     timer_b_vars.endFrameCb(timestamp);
+                     timer_b_vars.endFrameCb(TBCCR1);
                      timer_b_vars.f_SFDreceived = 0;
                  } else {
                       // cancel
