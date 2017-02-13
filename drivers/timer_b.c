@@ -71,15 +71,16 @@ void timer_b_setPacketTobeSent(){
 #pragma vector = TIMERB1_VECTOR
 __interrupt void TIMERB1_ISR (void) {
    uint16_t tbiv_local;
-   cc2420_status_t statusByte;
    tbiv_local = TBIV;
    
    P6OUT |=  0x40;
    
    if (tbiv_local==0x0004){
         P6OUT |=  0x80;
-        // send out data
-        cc2420_spiStrobe(CC2420_STXON, &statusByte);
+        // complete TXON strobe by putting CS signal high 
+        // to signal end of transmission to slave
+        P4OUT   |=  0x04;
+
         TBCCR2   =  0;
         TBCCTL2 &= ~CCIE;
         P6OUT &= ~0x80;

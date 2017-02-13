@@ -24,7 +24,7 @@ app_vars_t app_vars;
 
 //=========================== prototypes ======================================
 // helper
-uint16_t averageArray(uint16_t* array,uint8_t length);
+uint16_t averageSubticks();
 
 //=========================== main ============================================
 
@@ -226,8 +226,9 @@ void timer_a_cb_subtickCalculate(uint16_t timestamp){
         app_vars.isBusyCalculating = 1;
     } else {
         uint16_t offset = (timestamp-app_vars.timerStartAt)>>8;// divide by 256: TIMER_A_SUBTICK
-        // endOfAck needs 56us to finish, schedule a little more than this. 5 indicate 150us
-        app_vars.subticks = offset*3;
+        app_vars.subticks[app_vars.subticks_index] = offset;
+        app_vars.subticks_index = (app_vars.subticks_index+1)%16;
+        averageSubticks();
         app_vars.isBusyCalculating = 0;
     }
 }
@@ -238,6 +239,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     uint8_t             packet_len;
     cc2420_status_t     statusByte;
     uint8_t             dsn;
+    uint8_t             rxByte;
     
     if (app_vars.myId == SOURCE_ID){
          // cancel armed timer
@@ -247,10 +249,24 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     }
     
     if (app_vars.needScedule==1){
-        TBCCR2   =  timestamp+app_vars.subticks;
+        // endOfAck needs 56us to finish, schedule a little more than this. (3 indicates 91.5us)
+        TBCCR2   =  timestamp+3*app_vars.aveSubticks;
         TBCCTL2  =  CCIE;
         // turn radio off
         cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
+        
+        // preparing send TX_ON strobe, but do not pull CSn high here, 
+        // pull high after timer experid.
+        P4OUT  &= ~0x04;
+        // write next byte to TX buffer
+        U0TXBUF  = CC2420_STXON;
+        // busy wait on the interrupt flag
+        while ((IFG1 & URXIFG0)==0);
+        // clear the interrupt flag
+        IFG1    &= ~URXIFG0;
+        // save the byte just received in the RX buffer
+        rxByte   = U0RXBUF;
+        
         app_vars.needScedule = 0;
         P3OUT ^=  0x20;
         return;
@@ -260,16 +276,35 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     cc2420_spiReadRxFifo_length(&statusByte, &app_vars.packetRx[0], &packet_len, 9);
     cc2420_spiReadRam(0x0081,&app_vars.cc2420_status,&app_vars.packetRx[1],3);
     if (app_vars.packetRx[1]==FRAME_CONTROL_BYTE0 && app_vars.packetRx[2]==FRAME_CONTROL_BYTE1){
-      dsn = app_vars.packetRx[3];
-      if (dsn > app_vars.currentDsn){
-          app_vars.currentDsn = dsn;
-          if (packet_len!=9){
-              // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
-              cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
-              app_vars.needScedule=1;
-          }
-      }
+        dsn = app_vars.packetRx[3];
+        if (dsn > app_vars.currentDsn){
+            app_vars.currentDsn = dsn;
+            if (packet_len!=9){
+                // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
+                cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
+                app_vars.needScedule=1;
+            }
+        }
     }
 }
 void timer_b_cb_compareCb(void){
+}
+// ==== helper ====
+uint16_t averageSubticks(){
+    uint8_t i,j=0;
+    uint16_t sum=0;
+    for (i=0;i<16;i++){
+        // at 3V, the typical Frequency ranges from 4.4MHz to 5.4MHz,
+        // so the theoretical value of subticks ranges from (134~165)
+        if (app_vars.subticks[i]>=134 && app_vars.subticks[i]<=165){
+            sum += (uint16_t)app_vars.subticks[i];
+            j++;
+        }
+    }
+    if ((sum/j)>0){
+        app_vars.aveSubticks=sum/j;
+    } else {
+        //!! something wrong, using typical value of frequency (4.9MHz)
+        app_vars.aveSubticks = 149;
+    }
 }

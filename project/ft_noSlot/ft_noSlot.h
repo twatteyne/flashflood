@@ -45,11 +45,16 @@ typedef struct {
     cc2420_status_t     cc2420_status;
     uint8_t             packetTx[FRAME_LENGTH];
     uint8_t             packetRx[FRAME_LENGTH];
+    
     uint8_t             myId;
     uint8_t             currentDsn;
-    uint16_t            subticks;
+    
+    uint8_t             subticks[16];
+    uint8_t             subticks_index;
+    uint8_t             aveSubticks;
     uint16_t            timerStartAt;
     uint8_t             isBusyCalculating;
+    
     uint8_t             cycleId;
     uint8_t             needScedule;
 } app_vars_t;
