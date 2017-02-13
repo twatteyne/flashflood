@@ -239,8 +239,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     
     if (app_vars.myId == SOURCE_ID){
          // cancel armed timer
-         TBCCR2   =  0;
-         TBCCTL2 &= ~CCIE;
+         cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
          return;
     }
     
@@ -259,11 +258,11 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     
     if (app_vars.needScedule==1){
         // endOfAck needs 56us to finish, schedule a little more than this. (3 indicates 91.5us)
-        TBCCR2   =  timestamp+3*app_vars.aveSubticks;
+        TBCCR2   =  timestamp+4*app_vars.aveSubticks;
         TBCCTL2  =  CCIE;
         // turn radio off
         cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
-        
+        cc2420_spiStrobe(CC2420_STXCAL, &app_vars.cc2420_status);
         app_vars.needScedule = 0;
         P3OUT ^=  0x20;
         return;
