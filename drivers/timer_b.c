@@ -72,13 +72,25 @@ void timer_b_setPacketTobeSent(){
 __interrupt void TIMERB1_ISR (void) {
    uint16_t tbiv_local;
    tbiv_local = TBIV;
+   uint8_t rxByte;
    
    P6OUT |=  0x40;
    
    if (tbiv_local==0x0004){
         P6OUT |=  0x80;
-        // complete TXON strobe by putting CS signal high 
-        // to signal end of transmission to slave
+        // send TXON strobe
+        
+        // pull high after timer experid.
+        P4OUT  &= ~0x04;
+        // write next byte to TX buffer
+        U0TXBUF  = CC2420_STXON;
+        // busy wait on the interrupt flag
+        while ((IFG1 & URXIFG0)==0);
+        // clear the interrupt flag
+        IFG1    &= ~URXIFG0;
+        // save the byte just received in the RX buffer
+        rxByte   = U0RXBUF;
+        // pull highs
         P4OUT   |=  0x04;
 
         TBCCR2   =  0;

@@ -95,6 +95,76 @@ void cc2420_spiWriteFifo(cc2420_status_t* statusRead, uint8_t* bufToWrite, uint8
    );
 }
 
+void cc2420_spiReadRxFifo(cc2420_status_t* statusRead,
+                         uint8_t*         pBufRead,
+                         uint8_t*         pLenRead,
+                         uint8_t          maxBufLen) {
+   // when reading the packet over SPI from the RX buffer, you get the following:
+   // - *[1B]     dummy byte because of SPI
+   // - *[1B]     length byte
+   // -  [0-125B] packet (excluding CRC)
+   // - *[2B]     CRC
+   uint8_t spi_tx_buffer[125];
+   uint8_t spi_rx_buffer[3];
+   
+   spi_tx_buffer[0]     = (CC2420_FLAG_READ | CC2420_FLAG_REG | CC2420_RXFIFO_ADDR);
+   
+   // 2 first bytes
+   spi_txrx(
+      spi_tx_buffer,              // bufTx
+      2,                          // lenbufTx
+      SPI_BUFFER,                 // returnType
+      spi_rx_buffer,              // bufRx
+      sizeof(spi_rx_buffer),      // maxLenBufRx
+      SPI_FIRST,                  // isFirst
+      SPI_NOTLAST                 // isLast
+   );
+   
+   *statusRead          = *(cc2420_status_t*)&spi_rx_buffer[0];
+   *pLenRead            = spi_rx_buffer[1];
+   
+   // never receive packet longer than 9, avoid wrong memory accessing
+   if (*pLenRead>2 && *pLenRead<=FRAME_LENGTH) {
+      // valid length
+      
+      //read packet
+      spi_txrx(
+         spi_tx_buffer,           // bufTx
+         *pLenRead,               // lenbufTx
+         SPI_BUFFER,              // returnType
+         pBufRead,                // bufRx
+         125,                     // maxLenBufRx
+         SPI_NOTFIRST,            // isFirst
+         SPI_LAST                 // isLast
+      );
+      
+   } else {
+      // invalid length
+      
+      // read a just byte to close spi
+      spi_txrx(
+         spi_tx_buffer,           // bufTx
+         1,                       // lenbufTx
+         SPI_BUFFER,              // returnType
+         spi_rx_buffer,           // bufRx
+         sizeof(spi_rx_buffer),   // maxLenBufRx
+         SPI_NOTFIRST,            // isFirst
+         SPI_LAST                 // isLast
+      );
+   }
+   /*
+   A SFLUSHRX command strobe is required 
+   after an RXFIFO overflow to enable 
+   reception of new data. Note that the 
+   SFLUSHRX command strobe should be 
+   issued twice to ensure that the SFD pin 
+   goes back to its inactive state.
+   */
+   
+   cc2420_spiStrobe(CC2420_SFLUSHRX, statusRead);
+   cc2420_spiStrobe(CC2420_SFLUSHRX, statusRead);
+}
+
 void cc2420_spiReadRxFifo_length(cc2420_status_t* statusRead,
                          uint8_t*         pBufRead,
                          uint8_t*         pLenRead,

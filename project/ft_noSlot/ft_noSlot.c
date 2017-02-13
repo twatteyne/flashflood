@@ -24,7 +24,7 @@ app_vars_t app_vars;
 
 //=========================== prototypes ======================================
 // helper
-uint16_t averageSubticks();
+void averageSubticks();
 
 //=========================== main ============================================
 
@@ -55,10 +55,15 @@ int main(void) {
     P2DIR |=  0x08;      // [P2.3]
     P2DIR |=  0x40;      // [P2.6]
     P3DIR |=  0x20;      // [P3.5]
+    P3DIR |=  0x10;      // [P3.4]
     
     timer_a_init();
     timer_b_init();
     spi_init();
+
+    // get eui address
+    eui64_get(&address[0]);
+    app_vars.myId = address[7];
    
     // set radio VREG pin high
     P4OUT |=  0x20;
@@ -77,11 +82,20 @@ int main(void) {
     // turn on auto crc 
     // turn On address recognition 
     // accept all frame types
-    cc2420_spiWriteReg(
-      CC2420_MDMCTRL0_ADDR,
-      &cc2420_statusByte,
-      0x2af2
-    );
+    if (app_vars.myId != DESTINATION_ID){
+        cc2420_spiWriteReg(
+          CC2420_MDMCTRL0_ADDR,
+          &cc2420_statusByte,
+          0x2af2
+        );
+    } else {
+        // no auto ack on destination side, for experiment
+        cc2420_spiWriteReg(
+          CC2420_MDMCTRL0_ADDR,
+          &cc2420_statusByte,
+          0x22e2
+        );
+    }
 
     // speed up time to TX
     // max. TX power (~0dBm), faster STXON->SFD timing (128us)
@@ -97,10 +111,6 @@ int main(void) {
       &cc2420_statusByte,
       0x2a56
     );
-
-    // get eui address
-    eui64_get(&address[0]);
-    app_vars.myId = address[7];
 
     timer_a_setSubtickCalculateCb(timer_a_cb_subtickCalculate);
     timer_a_setOverflowCb(timer_a_cb_overflow);
@@ -159,21 +169,7 @@ int main(void) {
     }
 
     if (app_vars.myId==DESTINATION_ID){
-        // write short address
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_shortadr_cycle_3[0],
-                           2);
-        // write panId
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_panid_cycle_3[0],
-                           2);
-        // write 64-bit ieee address
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_ieeeadr_cycle_3[0],
-                           8);
+        // DESTINATION no auto ack, temperal setting
         app_vars.cycleId   = 0xcc;
     }
 
@@ -209,6 +205,7 @@ void timer_a_cb_compare(void) {
         cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
         // tx now
         cc2420_spiStrobe(CC2420_STXON, &cc2420_statusByte);
+        P3OUT   ^= 0x10;
         TACCR2   =  TAR+TIMER_A_PERIOD;
         TACCTL2  =  CCIE;
     }
@@ -239,7 +236,6 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     uint8_t             packet_len;
     cc2420_status_t     statusByte;
     uint8_t             dsn;
-    uint8_t             rxByte;
     
     if (app_vars.myId == SOURCE_ID){
          // cancel armed timer
@@ -248,24 +244,25 @@ void timer_b_cb_endFrame(uint16_t timestamp){
          return;
     }
     
+    if (app_vars.myId==DESTINATION_ID){
+        cc2420_spiReadRxFifo(&statusByte, &app_vars.packetRx[0], &packet_len, 9);
+        if (packet_len>4&&packet_len<=9){
+            app_vars.rxpk_crc = (app_vars.packetRx[packet_len-1]&0x80)>>7;
+            if (packet_len==9 && app_vars.rxpk_crc){
+                if (app_vars.packetRx[5] == 0xBB && app_vars.packetRx[6] == 0xBB){
+                    P3OUT   ^= 0x10;
+                }
+            }
+        }
+        return;
+    }
+    
     if (app_vars.needScedule==1){
         // endOfAck needs 56us to finish, schedule a little more than this. (3 indicates 91.5us)
         TBCCR2   =  timestamp+3*app_vars.aveSubticks;
         TBCCTL2  =  CCIE;
         // turn radio off
         cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
-        
-        // preparing send TX_ON strobe, but do not pull CSn high here, 
-        // pull high after timer experid.
-        P4OUT  &= ~0x04;
-        // write next byte to TX buffer
-        U0TXBUF  = CC2420_STXON;
-        // busy wait on the interrupt flag
-        while ((IFG1 & URXIFG0)==0);
-        // clear the interrupt flag
-        IFG1    &= ~URXIFG0;
-        // save the byte just received in the RX buffer
-        rxByte   = U0RXBUF;
         
         app_vars.needScedule = 0;
         P3OUT ^=  0x20;
@@ -277,7 +274,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     cc2420_spiReadRam(0x0081,&app_vars.cc2420_status,&app_vars.packetRx[1],3);
     if (app_vars.packetRx[1]==FRAME_CONTROL_BYTE0 && app_vars.packetRx[2]==FRAME_CONTROL_BYTE1){
         dsn = app_vars.packetRx[3];
-        if (dsn > app_vars.currentDsn){
+        if (dsn > app_vars.currentDsn || app_vars.currentDsn-dsn > 0xF7){
             app_vars.currentDsn = dsn;
             if (packet_len!=9){
                 // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
@@ -290,7 +287,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 void timer_b_cb_compareCb(void){
 }
 // ==== helper ====
-uint16_t averageSubticks(){
+void averageSubticks(){
     uint8_t i,j=0;
     uint16_t sum=0;
     for (i=0;i<16;i++){

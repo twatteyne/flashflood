@@ -327,6 +327,7 @@
           <name>newCCIncludePaths</name>
           <state>$PROJ_DIR$\..\..\drivers</state>
           <state>$PROJ_DIR$\</state>
+          <state>$PROJ_DIR$\..\..\inc</state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -980,7 +981,11 @@
         <debug>1</debug>
         <option>
           <name>CUTest</name>
-          <state>###Uninitialized###</state>
+          <state>-I$TOOLKIT_DIR$\inc</state>
+          <state>-@$TOOLKIT_DIR$\bin\iar.cmd</state>
+          <state>-@$PROJ_DIR$\source.txt</state>
+          <state>-@$PROJ_DIR$\include.txt</state>
+          <state>--preinclude=$PROJ_DIR$\IAR_ULPAdvisor_Defs.h</state>
         </option>
         <option>
           <name>ULPRules</name>
@@ -993,7 +998,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state></state>
+          <state>$PROJ_FNAME$.ulp</state>
         </option>
         <option>
           <name>ULPStatus</name>
@@ -2048,6 +2053,12 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\drivers\timer_b.h</name>
+    </file>
+  </group>
+  <group>
+    <name>inc</name>
+    <file>
+      <name>$PROJ_DIR$\..\..\inc\opendefs.h</name>
     </file>
   </group>
   <file>
