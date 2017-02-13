@@ -11,28 +11,16 @@
 #define CHANNEL               26
 
 //==== mote role
-#define SOURCE_ID                          0x16
-#define FIRST_HOP_1                        0x5e
+#define SOURCE_ID                          0x2b
+
+#define FIRST_HOP_1                        0x0f
 #define FIRST_HOP_2                        0x05
-#define SECOND_HOP_1                       0x0f
-#define SECOND_HOP_2                       0xdd
-#define DESTINATION_ID                     0x57
 
-// debug hop 2 motes
-//#define SOURCE_ID                          0x0f
-//#define FIRST_HOP_1                        0xdd
-//#define FIRST_HOP_2                        0x5e
-//#define SECOND_HOP_1                       0x16
-//#define SECOND_HOP_2                       0x57
-//#define DESTINATION_ID                     0x05
+#define SECOND_HOP_1                       0x5e
+#define SECOND_HOP_2                       0x16
 
-// one hop
-//#define SOURCE_ID                          0x57
-//#define FIRST_HOP_1                        0xdd
-//#define FIRST_HOP_2                        0x16
-//#define SECOND_HOP_1                       0x11
-//#define SECOND_HOP_2                       0x11
-//#define DESTINATION_ID                     0x11
+#define THIRD_HOP_1                        0x57
+#define THIRD_HOP_2                        0xdd
 
 //=========================== variables =======================================
 

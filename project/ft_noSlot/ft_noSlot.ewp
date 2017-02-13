@@ -2061,12 +2061,21 @@
       <name>$PROJ_DIR$\..\..\inc\opendefs.h</name>
     </file>
   </group>
-  <file>
-    <name>$PROJ_DIR$\ft_noSlot.c</name>
-  </file>
-  <file>
-    <name>$PROJ_DIR$\ft_noSlot.h</name>
-  </file>
+  <group>
+    <name>project</name>
+    <file>
+      <name>$PROJ_DIR$\address_setup.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\address_setup.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\ft_noSlot.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\ft_noSlot.h</name>
+    </file>
+  </group>
 </project>
 
 

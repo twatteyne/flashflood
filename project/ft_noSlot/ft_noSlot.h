@@ -23,7 +23,8 @@ typedef struct {
     uint8_t             isBusyCalculating;
     
     uint8_t             cycleId;
-    uint8_t             needScedule;
+    uint8_t             needSchedule;
+    uint8_t             needSkip;
 } app_vars_t;
 
 //=========================== prototype =======================================

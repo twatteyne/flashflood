@@ -7,18 +7,9 @@
 #include "msp430f1611.h"
 #include "ft_noSlot.h"
 #include "string.h"
+#include "address_setup.h"
 
 //=========================== variables =======================================
-
-static  uint8_t cc2420_shortadr_cycle_1[2] = {0xaa,0xaa};
-static  uint8_t cc2420_shortadr_cycle_2[2] = {0xbb,0xbb};
-static  uint8_t cc2420_shortadr_cycle_3[2] = {0xcc,0xcc};
-static  uint8_t cc2420_panid_cycle_1[2]    = {0xaa,0xaa};
-static  uint8_t cc2420_panid_cycle_2[2]    = {0xbb,0xbb};
-static  uint8_t cc2420_panid_cycle_3[2]    = {0xcc,0xcc};
-static  uint8_t cc2420_ieeeadr_cycle_1[8]  = {0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa};
-static  uint8_t cc2420_ieeeadr_cycle_2[8]  = {0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb};
-static  uint8_t cc2420_ieeeadr_cycle_3[8]  = {0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc};
 
 app_vars_t app_vars;
 
@@ -82,20 +73,11 @@ int main(void) {
     // turn on auto crc 
     // turn On address recognition 
     // accept all frame types
-    if (app_vars.myId != DESTINATION_ID){
-        cc2420_spiWriteReg(
-          CC2420_MDMCTRL0_ADDR,
-          &cc2420_statusByte,
-          0x2af2
-        );
-    } else {
-        // no auto ack on destination side, for experiment
-        cc2420_spiWriteReg(
-          CC2420_MDMCTRL0_ADDR,
-          &cc2420_statusByte,
-          0x22e2
-        );
-    }
+    cc2420_spiWriteReg(
+      CC2420_MDMCTRL0_ADDR,
+      &cc2420_statusByte,
+      0x2af2
+    );
 
     // speed up time to TX
     // max. TX power (~0dBm), faster STXON->SFD timing (128us)
@@ -121,63 +103,13 @@ int main(void) {
     __bis_SR_register(GIE);
 
     // ==== write short addr, panid and ieee addr
-    // prepare radio
-    radio_rfOn();
-    if (
-        app_vars.myId==SOURCE_ID   ||
-        app_vars.myId==FIRST_HOP_1 ||
-        app_vars.myId==FIRST_HOP_2
-    ) {
-        // write short address
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_shortadr_cycle_1[0],
-                           2);
-        // write panId
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_panid_cycle_1[0],
-                           2);
-        // write 64-bit ieee address
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_ieeeadr_cycle_1[0],
-                           8);
-        app_vars.cycleId   = 0xaa;
-    }
-
-    if (
-        app_vars.myId==SECOND_HOP_1     ||
-        app_vars.myId==SECOND_HOP_2
-    ) {
-        // write short address
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_shortadr_cycle_2[0],
-                           2);
-        // write panId
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_panid_cycle_2[0],
-                           2);
-        // write 64-bit ieee address
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,
-                           &app_vars.cc2420_status,
-                           &cc2420_ieeeadr_cycle_2[0],
-                           8);
-        app_vars.cycleId   = 0xbb;
-    }
-
-    if (app_vars.myId==DESTINATION_ID){
-        // DESTINATION no auto ack, temperal setting
-        app_vars.cycleId   = 0xcc;
-    }
+    address_setup(app_vars.myId,&app_vars.cycleId);
 
     //fcf is always the same
     app_vars.packetTx[0] = FRAME_CONTROL_BYTE0; // fcf byte0
     app_vars.packetTx[1] = FRAME_CONTROL_BYTE1; // fcf byte1
     for (i=0;i<4;i++){
-        app_vars.packetTx[i+3] = app_vars.cycleId; 
+        app_vars.packetTx[i+3] = app_vars.cycleId+0x11; // if my address is 0x11 my destination is 0x22 
     }
     radio_setFrequency(CHANNEL);
     radio_loadPacket(app_vars.packetTx,FRAME_LENGTH);
@@ -248,7 +180,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         if (packet_len>4&&packet_len<=9){
             app_vars.rxpk_crc = (app_vars.packetRx[packet_len-1]&0x80)>>7;
             if (packet_len==9 && app_vars.rxpk_crc){
-                if (app_vars.packetRx[5] == 0xBB && app_vars.packetRx[6] == 0xBB){
+                if (app_vars.packetRx[5] == 0x22 && app_vars.packetRx[6] == 0x22){
                     P3OUT   ^= 0x10;
                 }
             }
@@ -256,29 +188,43 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         return;
     }
     
-    if (app_vars.needScedule==1){
+    if (app_vars.needSchedule==1){
         // endOfAck needs 56us to finish, schedule a little more than this. (3 indicates 91.5us)
         TBCCR2   =  timestamp+4*app_vars.aveSubticks;
         TBCCTL2  =  CCIE;
         // turn radio off
         cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
         cc2420_spiStrobe(CC2420_STXCAL, &app_vars.cc2420_status);
-        app_vars.needScedule = 0;
+        app_vars.needSchedule = 0;
         P3OUT ^=  0x20;
+        return;
+    }
+    
+    if (app_vars.needSkip==1){
+        // skip this frame
+        app_vars.needSkip = 0;
+        cc2420_spiReadRxFifo_length(&statusByte, &app_vars.packetRx[0], &packet_len, 9);
         return;
     }
     
     // just read length
     cc2420_spiReadRxFifo_length(&statusByte, &app_vars.packetRx[0], &packet_len, 9);
-    cc2420_spiReadRam(0x0081,&app_vars.cc2420_status,&app_vars.packetRx[1],3);
-    if (app_vars.packetRx[1]==FRAME_CONTROL_BYTE0 && app_vars.packetRx[2]==FRAME_CONTROL_BYTE1){
-        dsn = app_vars.packetRx[3];
+    cc2420_spiReadRam(0x0081,&app_vars.cc2420_status,&app_vars.packetRx[0],4);
+    if (app_vars.packetRx[0]==FRAME_CONTROL_BYTE0 && app_vars.packetRx[1]==FRAME_CONTROL_BYTE1){
+        dsn = app_vars.packetRx[2];
         if (dsn > app_vars.currentDsn || app_vars.currentDsn-dsn > 0xF7){
             app_vars.currentDsn = dsn;
-            if (packet_len!=9){
+            // this is a trick!!!
+            // if auto ack failed, the length field will be replaced as the 5th byte (high byte of dest panId)
+            // low byte of dest panId 
+            if (packet_len==app_vars.cycleId-0x11 && app_vars.packetRx[3] == app_vars.cycleId-0x11){
                 // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
                 cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
-                app_vars.needScedule=1;
+                app_vars.needSchedule=1;
+            } else {
+                if (app_vars.cycleId-0x11>packet_len){
+                    app_vars.needSkip=1;
+                }
             }
         }
     }
