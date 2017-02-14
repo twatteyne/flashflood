@@ -190,7 +190,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     }
     
     if (app_vars.needSchedule==1){
-        // endOfAck needs 56us to finish, schedule a little more than this. (3 indicates 91.5us)
+        // endOfAck needs around 115us to finish, schedule a little more than this. (5 indicates 152.5us)
         TBCCR2   =  timestamp+5*app_vars.aveSubticks;
         TBCCTL2  =  CCIE;
         
