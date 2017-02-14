@@ -96,7 +96,6 @@ __interrupt void TIMERB1_ISR (void) {
    } else {
        if (tbiv_local==0x0002){
             if (TBCCTL1 & CCI) {
-                 timer_b_vars.startFrameCb(TBCCR1);
                  timer_b_vars.f_SFDreceived = 1;
             } else {
                  if (timer_b_vars.f_SFDreceived == 1) {
@@ -108,8 +107,7 @@ __interrupt void TIMERB1_ISR (void) {
             }
        } else {
             if (tbiv_local==0x000e){
-                //overflow, don't cancel CCR1 on timer A
-                P2OUT |= 0x40; 
+                //overflow
             }
        }
    }

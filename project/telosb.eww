@@ -2,6 +2,9 @@
 
 <workspace>
   <project>
+    <path>$WS_DIR$\competition\competition.ewp</path>
+  </project>
+  <project>
     <path>$WS_DIR$\draughts\draughts.ewp</path>
   </project>
   <project>

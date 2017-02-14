@@ -64,7 +64,7 @@ __interrupt void TIMERA1_ISR (void) {
    taiv_local = TAIV;
    P2OUT |=  0x08;
    if (taiv_local==0x0002) {
-      P2OUT &= ~0x40;
+      P2OUT ^= 0x40;
       timer_a_vars.subtickCalculateCb(timestamp);
    } else {
       if (taiv_local==0x0004) {
