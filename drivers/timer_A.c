@@ -62,7 +62,7 @@ __interrupt void TIMERA1_ISR (void) {
    uint16_t timestamp;
    timestamp  = TBR;
    taiv_local = TAIV;
-   P2OUT |=  0x08;
+   P3OUT |=  0x10;
    if (taiv_local==0x0002) {
       P2OUT ^= 0x40;
       timer_a_vars.subtickCalculateCb(timestamp);
@@ -78,6 +78,6 @@ __interrupt void TIMERA1_ISR (void) {
           }
       }
    }
-   P2OUT &= ~0x08;
+   P3OUT &= ~0x10;
    __bic_SR_register_on_exit(CPUOFF);
 }

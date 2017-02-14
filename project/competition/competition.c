@@ -11,7 +11,11 @@
 
 //=========================== define =========================================
 
-#define SOURCEID               0xdd
+#define SENSING_NODE           0xa0
+#define SINK_NODE              0xab
+
+// sink pin toggle p2.3 when receiving data
+
 #define SUBTICK_SCHEDULE        224     // RETRANSMIT_DELAY<<5
 #define RETRANSMIT_DELAY          7     // 7@32768Hz = 210us
 
@@ -119,7 +123,7 @@ int main(void) {
     eui64_get(&address[0]);
     app_vars.myId = address[7];
     
-    if (app_vars.myId==SOURCEID){
+    if (app_vars.myId==SENSING_NODE){
         TACCR2   =  TAR+TIMER_A_PERIOD;
         TACCTL2  =  CCIE;
     }
@@ -134,7 +138,7 @@ int main(void) {
 //=========================== callbacks =======================================
 
 void timer_a_cb_compare(void) {
-    if (app_vars.myId==SOURCEID){
+    if (app_vars.myId==SENSING_NODE){
         P5OUT     ^=  0x10; // toggle red leds
         cc2420_status_t cc2420_status;
         app_vars.currentDsn++;
@@ -177,7 +181,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     uint8_t             packet_len;
     uint8_t             rxDsn;
     uint8_t             rxByte;
-    uint8_t             rxCrc;
+    uint8_t             firstByte;
+    uint8_t             secondByte;
+    uint8_t             i;
     
     P4OUT  &= ~0x04;
     // read packet length
@@ -193,9 +199,11 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     U0TXBUF = 0x00;
     while ((IFG1 & URXIFG0)==0);
     IFG1   &= ~URXIFG0;
+    firstByte = U0RXBUF;
     U0TXBUF = 0x00;
     while ((IFG1 & URXIFG0)==0);
     IFG1   &= ~URXIFG0; 
+    secondByte = U0RXBUF;
     
     // get DSN
     U0TXBUF = 0x00;
@@ -227,7 +235,33 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     IFG1   &= ~URXIFG0;
     P4OUT  |=  0x04;
     
-//    rxCrc = (rxCrc & 0x80)>>7;
+    if (app_vars.myId==SINK_NODE){
+        if (packet_len == FRAME_LENGTH){
+            if (
+                firstByte==FRAME_CONTROL_BYTE0 && 
+                secondByte==FRAME_CONTROL_BYTE1
+            ){
+                if (
+                    rxDsn - app_vars.currentDsn < 0x07 && 
+                    rxDsn != app_vars.currentDsn
+                ) {
+                    for (i=0;i<rxDsn - app_vars.currentDsn;i++){
+                        P2OUT ^= 0x08;
+                    }
+                    app_vars.currentDsn = rxDsn;
+                } else {
+                    if ( app_vars.currentDsn - rxDsn > 0xF7){
+                        for (i=0;i<(uint16_t)0xff-(uint16_t)app_vars.currentDsn+rxDsn+1;i++){
+                            P2OUT ^= 0x08;
+                        }
+                        app_vars.currentDsn = rxDsn;
+                    }
+                }
+            }
+        }
+        return;
+    }
+    
     if (packet_len ==  ACK_LENGTH){
         
         P3OUT ^= 0x20;
