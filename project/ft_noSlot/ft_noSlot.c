@@ -168,6 +168,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     uint8_t             packet_len;
     cc2420_status_t     statusByte;
     uint8_t             dsn;
+    uint8_t             rxByte;
     
     if (app_vars.myId == SOURCE_ID){
          // cancel armed timer
@@ -190,11 +191,34 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     
     if (app_vars.needSchedule==1){
         // endOfAck needs 56us to finish, schedule a little more than this. (3 indicates 91.5us)
-        TBCCR2   =  timestamp+4*app_vars.aveSubticks;
+        TBCCR2   =  timestamp+5*app_vars.aveSubticks;
         TBCCTL2  =  CCIE;
-        // turn radio off
-        cc2420_spiStrobe(CC2420_SRFOFF, &app_vars.cc2420_status);
-        cc2420_spiStrobe(CC2420_STXCAL, &app_vars.cc2420_status);
+        
+        /* sending RX off and TXCAL strobe in a row
+        */
+        P4OUT  &= ~0x04;
+        U0TXBUF  = CC2420_SRFOFF;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1    &= ~URXIFG0;
+        U0TXBUF  = CC2420_STXCAL;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1    &= ~URXIFG0;
+        P4OUT   |=  0x04;
+        /**** end ****/
+        
+        rxByte = 0x10; // initial calivration as running
+        while ((rxByte & 0x10)){
+          // wait untile calibration stopped
+            P4OUT  &= ~0x04;
+            U0TXBUF  = (0x58); // (CC2420_FLAG_READ | CC2420_FLAG_REG | CC2420_FSCTRL_ADDR )
+            while ((IFG1 & URXIFG0)==0);
+            IFG1    &= ~URXIFG0;
+            U0TXBUF  = 0x00;
+            while ((IFG1 & URXIFG0)==0);
+            IFG1    &= ~URXIFG0;
+            rxByte   = U0RXBUF;
+            P4OUT   |=  0x04;
+        }
         app_vars.needSchedule = 0;
         P3OUT ^=  0x20;
         return;
@@ -203,7 +227,6 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     if (app_vars.needSkip==1){
         // skip this frame
         app_vars.needSkip = 0;
-        cc2420_spiReadRxFifo_length(&statusByte, &app_vars.packetRx[0], &packet_len, 9);
         return;
     }
     
@@ -216,7 +239,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             app_vars.currentDsn = dsn;
             // this is a trick!!!
             // if auto ack failed, the length field will be replaced as the 5th byte (high byte of dest panId)
-            // low byte of dest panId 
+            // low byte of dest panId. This will not used in real deployment.
             if (packet_len==app_vars.cycleId-0x11 && app_vars.packetRx[3] == app_vars.cycleId-0x11){
                 // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
                 cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
