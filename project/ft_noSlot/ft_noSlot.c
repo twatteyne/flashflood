@@ -192,7 +192,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         if (packet_len>4&&packet_len<=9){
             app_vars.rxpk_crc = (app_vars.packetRx[packet_len-1]&0x80)>>7;
             if (packet_len==9 && app_vars.rxpk_crc){
-                if (app_vars.packetRx[5] == app_vars.myId && app_vars.packetRx[6] == app_vars.myId){
+                if (app_vars.packetRx[5] == app_vars.cycleId && app_vars.packetRx[6] == app_vars.cycleId){
                     P3OUT   ^= 0x10;
                     P5OUT   ^= 0x20;
                 }
