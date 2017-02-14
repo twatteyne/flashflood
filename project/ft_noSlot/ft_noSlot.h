@@ -16,11 +16,8 @@ typedef struct {
     uint8_t             myId;
     uint8_t             currentDsn;
     
-    uint8_t             subticks[16];
-    uint8_t             subticks_index;
-    uint8_t             aveSubticks;
-    uint16_t            timerStartAt;
-    uint8_t             isBusyCalculating;
+    uint16_t            subticks;
+    uint16_t            lastTimestamp;
     
     uint8_t             cycleId;
     uint8_t             needSchedule;

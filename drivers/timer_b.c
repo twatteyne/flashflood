@@ -110,9 +110,6 @@ __interrupt void TIMERB1_ISR (void) {
             if (tbiv_local==0x000e){
                 //overflow, don't cancel CCR1 on timer A
                 P2OUT |= 0x40; 
-                // for calculating subticks, cancel it later if this is not overflow
-                TACCR1  =  TAR+TIMER_A_SUBTICK_OFFSET;
-                TACCTL1 =  CCIE;
             }
        }
    }

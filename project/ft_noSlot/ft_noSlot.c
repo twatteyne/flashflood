@@ -156,21 +156,29 @@ void timer_a_cb_compare(void) {
 
 // for calculating sub ticks
 void timer_a_cb_subtickCalculate(uint16_t timestamp){
-    uint16_t currentValue;
-    if (app_vars.isBusyCalculating==0){
-        app_vars.timerStartAt = timestamp;
-        // for calculating subticks
-        currentValue = TACCR1;
-        TACCR1       =  currentValue+TIMER_A_SUBTICK;
-        TACCTL1      =  CCIE;
-        app_vars.isBusyCalculating = 1;
+    uint16_t temp;
+    if (app_vars.lastTimestamp==0){
+        app_vars.subticks = 149*5;
     } else {
-        uint16_t offset = (timestamp-app_vars.timerStartAt)>>8;// divide by 256: TIMER_A_SUBTICK
-        app_vars.subticks[app_vars.subticks_index] = offset;
-        app_vars.subticks_index = (app_vars.subticks_index+1)%16;
-        averageSubticks();
-        app_vars.isBusyCalculating = 0;
+        if (timestamp>app_vars.lastTimestamp){
+            temp = timestamp-app_vars.lastTimestamp;
+        } else {
+            temp  = 0xffff-app_vars.lastTimestamp;
+            temp += (timestamp+1);
+        }
+        app_vars.subticks = (temp>>6); // subticks in 5 ticks
+        
+        // at 3V, the typical Frequency ranges from 4.4MHz to 5.4MHz,
+        // so the theoretical value of subticks ranges from (134~165)
+        if (app_vars.subticks<134*5 || app_vars.subticks>165*5){
+            app_vars.subticks = 149*5;
+        }
     }
+    // update lastTimestamp
+    app_vars.lastTimestamp = timestamp;
+    // for calculating subticks, cancel it later if this is not overflow
+    TACCR1  =  TAR+TIMER_A_SUBTICK;
+    TACCTL1 =  CCIE;
 }
 
 void timer_b_cb_startFrame(uint16_t timestamp){
@@ -203,7 +211,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     
     if (app_vars.needSchedule==1){
         // endOfAck needs around 115us to finish, schedule a little more than this. (5 indicates 152.5us)
-        TBCCR2   =  timestamp+5*app_vars.aveSubticks;
+        TBCCR2   =  timestamp+app_vars.subticks;
         TBCCTL2  =  CCIE;
         
         /* sending RX off and TXCAL strobe in a row
@@ -280,6 +288,8 @@ void timer_b_cb_compareCb(void){
 }
 // ==== helper ====
 void averageSubticks(){
+   /*** do not use average subticks.
+   *********************************
     uint8_t i,j=0;
     uint16_t sum=0;
     for (i=0;i<16;i++){
@@ -296,4 +306,5 @@ void averageSubticks(){
         //!! something wrong, using typical value of frequency (4.9MHz)
         app_vars.aveSubticks = 149;
     }
+  ***/
 }
