@@ -25,6 +25,8 @@ typedef struct {
     uint8_t             cycleId;
     uint8_t             needSchedule;
     uint8_t             needSkip;
+    uint8_t             needFlushRxFIFO;
+    uint8_t             debug;
 } app_vars_t;
 
 //=========================== prototype =======================================

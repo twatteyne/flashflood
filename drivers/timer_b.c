@@ -72,7 +72,6 @@ void timer_b_setPacketTobeSent(){
 __interrupt void TIMERB1_ISR (void) {
    uint16_t tbiv_local;
    tbiv_local = TBIV;
-   uint8_t rxByte;
    
    P6OUT |=  0x40;
    
@@ -88,8 +87,6 @@ __interrupt void TIMERB1_ISR (void) {
         while ((IFG1 & URXIFG0)==0);
         // clear the interrupt flag
         IFG1    &= ~URXIFG0;
-        // save the byte just received in the RX buffer
-        rxByte   = U0RXBUF;
         // pull highs
         P4OUT   |=  0x04;
 

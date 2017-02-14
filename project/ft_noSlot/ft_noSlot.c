@@ -48,6 +48,9 @@ int main(void) {
     P3DIR |=  0x20;      // [P3.5]
     P3DIR |=  0x10;      // [P3.4]
     
+    P5DIR     |=  0x70;                           // P5DIR = 0bx111xxxx for LEDs
+    P5OUT     |=  0x70;                           // P2OUT = 0bx111xxxx, all LEDs off
+    
     timer_a_init();
     timer_b_init();
     spi_init();
@@ -73,11 +76,19 @@ int main(void) {
     // turn on auto crc 
     // turn On address recognition 
     // accept all frame types
-    cc2420_spiWriteReg(
-      CC2420_MDMCTRL0_ADDR,
-      &cc2420_statusByte,
-      0x2af2
-    );
+    if (DESTINATION_ID == app_vars.myId){
+        cc2420_spiWriteReg(
+          CC2420_MDMCTRL0_ADDR,
+          &cc2420_statusByte,
+          0x22e2
+        );
+    } else {
+        cc2420_spiWriteReg(
+          CC2420_MDMCTRL0_ADDR,
+          &cc2420_statusByte,
+          0x2af2
+        );
+    }
 
     // speed up time to TX
     // max. TX power (~0dBm), faster STXON->SFD timing (128us)
@@ -181,8 +192,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         if (packet_len>4&&packet_len<=9){
             app_vars.rxpk_crc = (app_vars.packetRx[packet_len-1]&0x80)>>7;
             if (packet_len==9 && app_vars.rxpk_crc){
-                if (app_vars.packetRx[5] == 0x22 && app_vars.packetRx[6] == 0x22){
+                if (app_vars.packetRx[5] == app_vars.myId && app_vars.packetRx[6] == app_vars.myId){
                     P3OUT   ^= 0x10;
+                    P5OUT   ^= 0x20;
                 }
             }
         }
@@ -206,7 +218,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         P4OUT   |=  0x04;
         /**** end ****/
         
-        rxByte = 0x10; // initial calivration as running
+        rxByte = 0x10; // initial calibration as running
         while ((rxByte & 0x10)){
           // wait untile calibration stopped
             P4OUT  &= ~0x04;
@@ -227,6 +239,10 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     if (app_vars.needSkip==1){
         // skip this frame
         app_vars.needSkip = 0;
+        if (app_vars.needFlushRxFIFO){
+             cc2420_spiStrobe(CC2420_SFLUSHRX, &statusByte);
+             app_vars.needFlushRxFIFO = 0;
+        }
         return;
     }
     
@@ -236,17 +252,25 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     if (app_vars.packetRx[0]==FRAME_CONTROL_BYTE0 && app_vars.packetRx[1]==FRAME_CONTROL_BYTE1){
         dsn = app_vars.packetRx[2];
         if (dsn > app_vars.currentDsn || app_vars.currentDsn-dsn > 0xF7){
-            app_vars.currentDsn = dsn;
             // this is a trick!!!
             // if auto ack failed, the length field will be replaced as the 5th byte (high byte of dest panId)
             // low byte of dest panId. This will not used in real deployment.
             if (packet_len==app_vars.cycleId-0x11 && app_vars.packetRx[3] == app_vars.cycleId-0x11){
+                app_vars.currentDsn = dsn;
+                // this is for my preivous hop
                 // write new dsn in txbuffer, len at addr 0x000, 2 byte fcf is at 0x001 and dsn is located at addr 0x003
                 cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
                 app_vars.needSchedule=1;
             } else {
-                if (app_vars.cycleId-0x11>packet_len){
+                if (app_vars.packetRx[3] == app_vars.cycleId){
+                    app_vars.currentDsn = dsn;
+                }
+                if (app_vars.cycleId-packet_len > 0x11){
                     app_vars.needSkip=1;
+                }
+                if (app_vars.cycleId-packet_len == 0x33){
+                    // this 0x5555
+                    app_vars.needFlushRxFIFO = 1;
                 }
             }
         }

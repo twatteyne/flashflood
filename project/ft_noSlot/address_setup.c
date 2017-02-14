@@ -126,7 +126,7 @@ void address_setup(uint8_t myId, uint8_t* cycleId){
         *cycleId   = 0x55;
         break;
     case DESTINATION_ID:
-        // no such mote
+        // no autoack on destination mote
         *cycleId   = 0x66;
         break;
     default:
