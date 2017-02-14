@@ -23,9 +23,9 @@
 #define THIRD_HOP_2                        0x5e
 
 #define FOURTH_HOP_1                       0x16
-#define FOURTH_HOP_2                       0xdd
+#define FOURTH_HOP_2                       0x57
 
-#define DESTINATION_ID                     0x57
+#define DESTINATION_ID                     0xdd
 
 //=========================== variables =======================================
 
