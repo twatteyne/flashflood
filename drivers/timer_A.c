@@ -62,9 +62,13 @@ __interrupt void TIMERA1_ISR (void) {
    uint16_t timestamp;
    timestamp  = TBR;
    taiv_local = TAIV;
-   P3OUT |=  0x10;
+#ifdef PIN_DEBUG
+      P3OUT |=  0x10;
+#endif
    if (taiv_local==0x0002) {
+#ifdef PIN_DEBUG
       P2OUT ^= 0x40;
+#endif
       timer_a_vars.subtickCalculateCb(timestamp);
    } else {
       if (taiv_local==0x0004) {
@@ -78,6 +82,8 @@ __interrupt void TIMERA1_ISR (void) {
           }
       }
    }
+#ifdef PIN_DEBUG
    P3OUT &= ~0x10;
+#endif
    __bic_SR_register_on_exit(CPUOFF);
 }

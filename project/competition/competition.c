@@ -56,16 +56,19 @@ int main(void) {
     DCOCTL    |=  DCO0 | DCO1 | DCO2;             // MCLK at ~8MHz
     BCSCTL1   |=  RSEL0 | RSEL1 | RSEL2;          // MCLK at ~8MHz
                                                  // by default, ACLK from 32kHz XTAL which is running
+#ifdef PIN_DEBUG
     P5DIR     |=  0x70;                           // P5DIR = 0bx111xxxx for LEDs
     P5OUT     |=  0x70;                           // P2OUT = 0bx111xxxx, all LEDs off
-    
+#endif
+#ifdef PIN_DEBUG    
     // debugpins
     P6DIR |=  0x40;      // [P6.6]
     P6DIR |=  0x80;      // [P6.7]
-    P2DIR |=  0x08;      // [P2.3]
     P2DIR |=  0x40;      // [P2.6]
     P3DIR |=  0x20;      // [P3.5]
     P3DIR |=  0x10;      // [P3.4]
+#endif
+    P2DIR |=  0x08;      // [P2.3] // GIO2
     
     timer_a_init();
     timer_b_init();
@@ -161,12 +164,15 @@ void timer_a_cb_compare(void) {
         }
         
         if (iShouldSend){
+#ifdef PIN_DEBUG
             P5OUT     ^=  0x10; // toggle red leds
+#endif
             cc2420_status_t cc2420_status;
             app_vars.currentDsn++;
             cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
             // tx now
             cc2420_spiStrobe(CC2420_STXON, &cc2420_status);
+            P2OUT     ^= 0x08; // toggle GIO2
         }
         TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
@@ -281,14 +287,38 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     }
                 }
             }
+        } else {
+            if (packet_len == ACK_LENGTH){
+                if (
+                    firstByte==0x02 && 
+                    secondByte==0x00
+                ){
+                    if (
+                        rxDsn - app_vars.currentDsn < 0x07 && 
+                        rxDsn != app_vars.currentDsn
+                    ) {
+                        for (i=0;i<rxDsn - app_vars.currentDsn;i++){
+                            P2OUT ^= 0x08;
+                        }
+                        app_vars.currentDsn = rxDsn;
+                    } else {
+                        if ( app_vars.currentDsn - rxDsn > 0xF7){
+                            for (i=0;i<(uint16_t)0xff-(uint16_t)app_vars.currentDsn+rxDsn+1;i++){
+                                P2OUT ^= 0x08;
+                            }
+                            app_vars.currentDsn = rxDsn;
+                        }
+                    }
+                }
+            }
         }
         return;
     }
     
     if (packet_len ==  ACK_LENGTH){
-        
+#ifdef PIN_DEBUG
         P3OUT ^= 0x20;
-        
+#endif
         if (
             (rxDsn - app_vars.currentDsn < 0x07 && rxDsn != app_vars.currentDsn)|| 
              app_vars.currentDsn - rxDsn > 0xF7
