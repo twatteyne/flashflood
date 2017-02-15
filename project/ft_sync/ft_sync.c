@@ -50,7 +50,8 @@
 #define PORT_delayRx                          0 // 0us (can not measure)
 
 //=== subTick calculation
-#define BSP_TIMER_SCHEDULE                   30
+#define BSP_TIMER_SCHEDULE_START             15
+#define BSP_TIMER_SCHEDULE_END               20 
 #define NEXT_PACKET_SCHEDULE                104 // PORT_TsSlotDuration-TxAckDelay-durationAck(5,180us)
 #define SAMPLE_SET_SIZE                       5
 
@@ -149,7 +150,7 @@ app_vars_t app_vars;
 //=========================== prototypes ======================================
 
 // bsp level
-void bsp_timer_cb_subtickCalculate(void);
+void bsp_timer_cb_subtickCalculate(uint16_t timestampe);
 void bsp_timer_cb_overflow(void);
 void bsp_timer_cb_compare(void);
 void radiotimer_cb_startFrame(PORT_RADIOTIMER_WIDTH timestamp);
@@ -320,10 +321,10 @@ int mote_main(void) {
 
 void calculateSubticks() {
     // record radtimer counter
-    app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index] = app_vars.radiotimerCounter/BSP_TIMER_SCHEDULE;
+    app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index] = app_vars.radiotimerCounter/(BSP_TIMER_SCHEDULE_END-BSP_TIMER_SCHEDULE_START);
+//    app_vars.internalValue  = averageArray(&app_vars.ticksAt5m2oneTickAt32k[0],SAMPLE_SET_SIZE);
+    app_vars.internalValue  = app_vars.ticksAt5m2oneTickAt32k[app_vars.tickCounter_index]; // use latest one
     app_vars.tickCounter_index  = (app_vars.tickCounter_index+1)%SAMPLE_SET_SIZE;
-    
-    app_vars.internalValue  = averageArray(&app_vars.ticksAt5m2oneTickAt32k[0],SAMPLE_SET_SIZE);
     app_vars.internalValue *= (NEXT_PACKET_SCHEDULE);
     app_vars.internalValue -= PORT_delayTx;
 }
@@ -342,20 +343,34 @@ void radiotimer_cb_compareCb(void){
     }
 }
 
-void bsp_timer_cb_subtickCalculate(void) {
+void bsp_timer_cb_subtickCalculate(uint16_t timestampe) {
     if (
         app_vars.app_state == S_RXDATA ||
         app_vars.app_state == S_TXACK  ||
         app_vars.app_state == S_TXACKDELAY
     ){  
         // a SoF happended before, don't calculate this time
+        app_vars.calculate_state = S_IDLE;
         return;
     }
-    app_vars.radiotimerCounter = TBR;
-    if (app_vars.task==NULL){
-        app_vars.task = calculateSubticks;
-    } else {
-        // skip this time
+    switch (app_vars.calculate_state){
+    case S_IDLE:
+        app_vars.calculate_state = S_START;
+        app_vars.radiotimerCounter = timestampe; // start time
+        bsp_timer_schedule_subTickCalc(BSP_TIMER_SCHEDULE_END);
+        break;
+    case S_START:
+        app_vars.calculate_state = S_END;
+        app_vars.radiotimerCounter = timestampe-app_vars.radiotimerCounter; // end time          
+        if (app_vars.task==NULL){
+            app_vars.task = calculateSubticks;
+        } else {
+            // skip this time
+        }
+        break;
+    default:
+        leds_error_toggle();
+        break;
     }
 }
 
@@ -364,8 +379,8 @@ void bsp_timer_cb_overflow(void) {
     if (app_vars.packetScheduled==0){
         // schedule bsp timer for calibrating SMCLK clock
         app_vars.calculate_state = S_IDLE;
-        TBR=0;
-        bsp_timer_schedule_subTickCalc(BSP_TIMER_SCHEDULE);
+        TBR=0; // avoid overflow
+        bsp_timer_schedule_subTickCalc(BSP_TIMER_SCHEDULE_START);
         
     }
     app_vars.task = startCommunicating;
@@ -738,15 +753,17 @@ void endSlot(){
 // make sure the item value is less than (65535/length)
 uint16_t averageArray(uint16_t* array,uint8_t length){
     uint8_t i,j=0;
-    uint16_t average, sum=0;
+    uint16_t average;
     for (i=0;i<length;i++){
         // don't take zero into consideration
         if (array!=0){
-            sum += array[i];
+            average += array[i];
             j++;
+            if (j>1){
+                average/=2;
+            }
         }
     }
-    average = (sum/j);
     return average;
 }
 
