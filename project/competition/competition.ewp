@@ -736,7 +736,7 @@
         </option>
         <option>
           <name>XclFile</name>
-          <state>$TOOLKIT_DIR$\CONFIG\lnk430.xcl</state>
+          <state>$TOOLKIT_DIR$\CONFIG\lnk430F1611.xcl</state>
         </option>
         <option>
           <name>XclFileSlave</name>
@@ -860,11 +860,11 @@
         </option>
         <option>
           <name>XExtraOutOverride</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>competition.a43</state>
+          <state>competition.ihex</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>

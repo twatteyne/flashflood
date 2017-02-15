@@ -65,7 +65,7 @@ def main():
         
     # check valid fo options
     if image == None:
-        image = "..\project\competition\Debug\Exe\competition.a43" 
+        image = "..\project\competition\Debug\Exe\competition.ihex" 
     
     for port in findSerialPorts():
         subprocess.Popen("python bsl --telosb -c {0} -r -e -I -p {1}".format(port,image))
