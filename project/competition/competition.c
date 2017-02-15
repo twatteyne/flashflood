@@ -340,10 +340,10 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             while ((IFG1 & URXIFG0)==0);
             IFG1    &= ~URXIFG0;
             // write dsn to tx fifo RAM 
-            U0TXBUF  = 0x83;        // address 0x003
+            U0TXBUF  = 0x83;        // address[0] 0x03 | CC2420_FLAG_RAM 0x80
             while ((IFG1 & URXIFG0)==0);
             IFG1    &= ~URXIFG0;
-            U0TXBUF  = 0x00;
+            U0TXBUF  = 0x00;        // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
             while ((IFG1 & URXIFG0)==0);
             IFG1    &= ~URXIFG0;
             U0TXBUF  = app_vars.currentDsn;
