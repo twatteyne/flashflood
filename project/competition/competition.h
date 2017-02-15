@@ -11,6 +11,7 @@ typedef struct {
     
     uint8_t             myId;
     uint8_t             currentDsn;
+    uint8_t             myRank;
     
     uint16_t            subticks;
     uint16_t            lastTimestamp;

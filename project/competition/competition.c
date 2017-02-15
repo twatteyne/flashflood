@@ -22,6 +22,10 @@
 #define LUX_THRESHOLD           400
 #define LUX_HYSTERESIS          100
 
+// txfifo dsn address (0x003)
+#define WRITE_TXFIFO_DSN_BYTE0  0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
+#define WRITE_TXFIFO_DSN_BYTE1  0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
+
 //=========================== variables =======================================
 
 static  uint8_t cc2420_shortadr_cycle[2] = {0x11,0x11};
@@ -69,6 +73,7 @@ int main(void) {
     P3DIR |=  0x10;      // [P3.4]
 #endif
     P2DIR |=  0x08;      // [P2.3] // GIO2
+    P2OUT &= ~0x08;      // turn off by default
     
     timer_a_init();
     timer_b_init();
@@ -154,10 +159,12 @@ void timer_a_cb_compare(void) {
           // light was just turned on
           app_vars.light_state = 1;
           iShouldSend = 1;
+          P2OUT     |= 0x08;    // set light pin
         } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LUX_THRESHOLD - LUX_HYSTERESIS))) {
           // light was just turned off
           app_vars.light_state = 0;
           iShouldSend = 1;
+          P2OUT     &= ~0x08; // clean light pin
         } else {
           // light stays in same state
           iShouldSend = 0;
@@ -167,12 +174,30 @@ void timer_a_cb_compare(void) {
 #ifdef PIN_DEBUG
             P5OUT     ^=  0x10; // toggle red leds
 #endif
-            cc2420_status_t cc2420_status;
-            app_vars.currentDsn++;
-            cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
-            // tx now
-            cc2420_spiStrobe(CC2420_STXON, &cc2420_status);
-            P2OUT     ^= 0x08; // toggle GIO2
+            app_vars.currentDsn = (app_vars.currentDsn+1)%16; // lower 4 bits are dsn
+            // write dsn to tx fifo RAM 
+            P4OUT   &= ~0x04;
+            U0TXBUF  = WRITE_TXFIFO_DSN_BYTE0; // address[0] 0x03 | CC2420_FLAG_RAM 0x80
+            while ((IFG1 & URXIFG0)==0);
+            IFG1    &= ~URXIFG0;
+            U0TXBUF  = WRITE_TXFIFO_DSN_BYTE1; // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
+            while ((IFG1 & URXIFG0)==0);
+            IFG1    &= ~URXIFG0;
+            U0TXBUF  = app_vars.currentDsn | (app_vars.light_state<<7); // bit7, light on/off, bit 6-4, hop (0), bit 3-0 dsn
+            while ((IFG1 & URXIFG0)==0);
+            IFG1    &= ~URXIFG0;
+            P4OUT   |=  0x04;
+            
+            // send TXON strobe 
+            P4OUT  &= ~0x04;
+            // write next byte to TX buffer
+            U0TXBUF  = CC2420_STXON;
+            // busy wait on the interrupt flag
+            while ((IFG1 & URXIFG0)==0);
+            // clear the interrupt flag
+            IFG1    &= ~URXIFG0;
+            // pull highs
+            P4OUT   |=  0x04;
         }
         TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
@@ -208,11 +233,11 @@ void timer_a_cb_subtickCalculate(uint16_t timestamp){
 
 void timer_b_cb_endFrame(uint16_t timestamp){
     uint8_t             packet_len;
-    uint8_t             rxDsn;
+    uint8_t             rxLightRankDsn;
     uint8_t             rxByte;
     uint8_t             firstByte;
     uint8_t             secondByte;
-    uint8_t             i;
+    uint8_t             neighborRank;
     
     P4OUT  &= ~0x04;
     // read packet length
@@ -238,7 +263,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     U0TXBUF = 0x00;
     while ((IFG1 & URXIFG0)==0);
     IFG1   &= ~URXIFG0; 
-    rxDsn  = U0RXBUF;
+    rxLightRankDsn  = U0RXBUF;
     
     /**** reading the crc needs sometime, use following code with concern */
     
@@ -270,21 +295,11 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 firstByte==FRAME_CONTROL_BYTE0 && 
                 secondByte==FRAME_CONTROL_BYTE1
             ){
-                if (
-                    rxDsn - app_vars.currentDsn < 0x07 && 
-                    rxDsn != app_vars.currentDsn
-                ) {
-                    for (i=0;i<rxDsn - app_vars.currentDsn;i++){
-                        P2OUT ^= 0x08;
-                    }
-                    app_vars.currentDsn = rxDsn;
+                // received packet
+                if (rxLightRankDsn&0x80==0x80){
+                    P2OUT |= 0x08;
                 } else {
-                    if ( app_vars.currentDsn - rxDsn > 0xF7){
-                        for (i=0;i<(uint16_t)0xff-(uint16_t)app_vars.currentDsn+rxDsn+1;i++){
-                            P2OUT ^= 0x08;
-                        }
-                        app_vars.currentDsn = rxDsn;
-                    }
+                    P2OUT &= ~0x08;
                 }
             }
         } else {
@@ -293,21 +308,11 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     firstByte==0x02 && 
                     secondByte==0x00
                 ){
-                    if (
-                        rxDsn - app_vars.currentDsn < 0x07 && 
-                        rxDsn != app_vars.currentDsn
-                    ) {
-                        for (i=0;i<rxDsn - app_vars.currentDsn;i++){
-                            P2OUT ^= 0x08;
-                        }
-                        app_vars.currentDsn = rxDsn;
+                    // received packet
+                    if (rxLightRankDsn&0x80==0x80){
+                        P2OUT |= 0x08;
                     } else {
-                        if ( app_vars.currentDsn - rxDsn > 0xF7){
-                            for (i=0;i<(uint16_t)0xff-(uint16_t)app_vars.currentDsn+rxDsn+1;i++){
-                                P2OUT ^= 0x08;
-                            }
-                            app_vars.currentDsn = rxDsn;
-                        }
+                        P2OUT &= ~0x08;
                     }
                 }
             }
@@ -315,56 +320,65 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         return;
     }
     
+    // non SINK node; only check on ACK
     if (packet_len ==  ACK_LENGTH){
+        neighborRank = (rxLightRankDsn & 0x70)>>4;
+        if (app_vars.myRank==0){
+            if (app_vars.myId == SENSING_NODE){
+                // sensing node never relay 
+                return;
+            }
+            app_vars.myRank = 1+neighborRank;
+        } else {
+            if (neighborRank>=app_vars.myRank){
+                // do not process if receive packet from node with higher rank than me
+                return;
+            } else {
+                app_vars.myRank = 1+neighborRank;
+            }
+        }
 #ifdef PIN_DEBUG
         P3OUT ^= 0x20;
 #endif
-        if (
-            (rxDsn - app_vars.currentDsn < 0x07 && rxDsn != app_vars.currentDsn)|| 
-             app_vars.currentDsn - rxDsn > 0xF7
-        ) {
-            app_vars.currentDsn = rxDsn;
-            
-            // the whole endOfAck process needs around 191us to finish, schedule a little bit more than this (e.g. 240us).
-            TBCCR2   =  timestamp+app_vars.subticks;
-            TBCCTL2  =  CCIE;
-            
-            /* sending RXOFF, TXCAL strobe and write rxDsn in TxFiFo in a row */
+        // the whole endOfAck process needs around 183us to finish, schedule a little bit more than this (e.g. 210us).
+        TBCCR2   =  timestamp+app_vars.subticks;
+        TBCCTL2  =  CCIE;
+        
+        /* sending RXOFF, TXCAL strobe and write rxDsn in TxFiFo in a row */
+        P4OUT  &= ~0x04;
+        // send RFOFF
+        U0TXBUF  = CC2420_SRFOFF;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1    &= ~URXIFG0;
+        // send TXCAL
+        U0TXBUF  = CC2420_STXCAL;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1    &= ~URXIFG0;
+        // write dsn to tx fifo RAM 
+        U0TXBUF  = WRITE_TXFIFO_DSN_BYTE0; // address[0] 0x03 | CC2420_FLAG_RAM 0x80
+        while ((IFG1 & URXIFG0)==0);
+        IFG1    &= ~URXIFG0;
+        U0TXBUF  = WRITE_TXFIFO_DSN_BYTE1; // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
+        while ((IFG1 & URXIFG0)==0);
+        IFG1    &= ~URXIFG0;
+        U0TXBUF  = (rxLightRankDsn & 0x8f) | (app_vars.myRank<<4);
+        while ((IFG1 & URXIFG0)==0);
+        IFG1    &= ~URXIFG0;
+        P4OUT   |=  0x04;
+        /**** end ****/
+        
+        do {
+            // wait untile calibration stopped
             P4OUT  &= ~0x04;
-            // send RFOFF
-            U0TXBUF  = CC2420_SRFOFF;
+            U0TXBUF = (0x58); // (CC2420_FLAG_READ | CC2420_FLAG_REG | CC2420_FSCTRL_ADDR )
             while ((IFG1 & URXIFG0)==0);
-            IFG1    &= ~URXIFG0;
-            // send TXCAL
-            U0TXBUF  = CC2420_STXCAL;
+            IFG1   &= ~URXIFG0;
+            U0TXBUF = 0x00;
             while ((IFG1 & URXIFG0)==0);
-            IFG1    &= ~URXIFG0;
-            // write dsn to tx fifo RAM 
-            U0TXBUF  = 0x83;        // address[0] 0x03 | CC2420_FLAG_RAM 0x80
-            while ((IFG1 & URXIFG0)==0);
-            IFG1    &= ~URXIFG0;
-            U0TXBUF  = 0x00;        // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
-            while ((IFG1 & URXIFG0)==0);
-            IFG1    &= ~URXIFG0;
-            U0TXBUF  = app_vars.currentDsn;
-            while ((IFG1 & URXIFG0)==0);
-            IFG1    &= ~URXIFG0;
-            P4OUT   |=  0x04;
-            /**** end ****/
-            
-            do {
-                // wait untile calibration stopped
-                P4OUT  &= ~0x04;
-                U0TXBUF = (0x58); // (CC2420_FLAG_READ | CC2420_FLAG_REG | CC2420_FSCTRL_ADDR )
-                while ((IFG1 & URXIFG0)==0);
-                IFG1   &= ~URXIFG0;
-                U0TXBUF = 0x00;
-                while ((IFG1 & URXIFG0)==0);
-                IFG1   &= ~URXIFG0;
-                rxByte  = U0RXBUF;
-                // stop, I only need the MSB
-                P4OUT  |=  0x04;
-            } while(rxByte & 0x10);
-        }
+            IFG1   &= ~URXIFG0;
+            rxByte  = U0RXBUF;
+            // stop, I only need the MSB
+            P4OUT  |=  0x04;
+        } while(rxByte & 0x10);
     }
 }
