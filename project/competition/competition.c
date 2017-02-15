@@ -7,7 +7,7 @@
 #include "msp430f1611.h"
 #include "competition.h"
 #include "string.h"
-
+#include "adc_sensor.h"
 
 //=========================== define =========================================
 
@@ -18,6 +18,9 @@
 
 #define SUBTICK_SCHEDULE        224     // RETRANSMIT_DELAY<<5
 #define RETRANSMIT_DELAY          7     // 7@32768Hz = 210us
+
+#define LUX_THRESHOLD           400
+#define LUX_HYSTERESIS          100
 
 //=========================== variables =======================================
 
@@ -67,6 +70,7 @@ int main(void) {
     timer_a_init();
     timer_b_init();
     spi_init();
+    adc_sensor_init();
     
     timer_a_setSubtickCalculateCb(timer_a_cb_subtickCalculate);
     timer_a_setCompareCb(timer_a_cb_compare);
@@ -124,7 +128,7 @@ int main(void) {
     app_vars.myId = address[7];
     
     if (app_vars.myId==SENSING_NODE){
-        TACCR2   =  TAR+TIMER_A_PERIOD;
+        TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
     }
     // start subticks calculating timer
@@ -138,14 +142,33 @@ int main(void) {
 //=========================== callbacks =======================================
 
 void timer_a_cb_compare(void) {
+    uint8_t iShouldSend;
     if (app_vars.myId==SENSING_NODE){
-        P5OUT     ^=  0x10; // toggle red leds
-        cc2420_status_t cc2420_status;
-        app_vars.currentDsn++;
-        cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
-        // tx now
-        cc2420_spiStrobe(CC2420_STXON, &cc2420_status);
-        TACCR2   =  TAR+TIMER_A_PERIOD;
+        
+        app_vars.light_reading = adc_sens_read_total_solar();
+        // detect light state switches
+        if (       app_vars.light_state==0 && (app_vars.light_reading >= (LUX_THRESHOLD + LUX_HYSTERESIS))) {
+          // light was just turned on
+          app_vars.light_state = 1;
+          iShouldSend = 1;
+        } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LUX_THRESHOLD - LUX_HYSTERESIS))) {
+          // light was just turned off
+          app_vars.light_state = 0;
+          iShouldSend = 1;
+        } else {
+          // light stays in same state
+          iShouldSend = 0;
+        }
+        
+        if (iShouldSend){
+            P5OUT     ^=  0x10; // toggle red leds
+            cc2420_status_t cc2420_status;
+            app_vars.currentDsn++;
+            cc2420_spiWriteRam(0x0003,&app_vars.cc2420_status,&app_vars.currentDsn,1);
+            // tx now
+            cc2420_spiStrobe(CC2420_STXON, &cc2420_status);
+        }
+        TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
     }
 }

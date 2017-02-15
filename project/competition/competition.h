@@ -2,7 +2,7 @@
 #include "opendefs.h"
 //=========================== defines =========================================
 
-#define TIMER_A_PERIOD                    32768 // 1s
+#define LIGHT_SAMPLE_PERIOD                    100 // 3ms
 
 typedef struct {
     uint8_t             rxpk_crc;
@@ -14,6 +14,9 @@ typedef struct {
     
     uint16_t            subticks;
     uint16_t            lastTimestamp;
+    
+    uint8_t             light_state;
+    uint16_t            light_reading;
 } app_vars_t;
 
 //=========================== prototype =======================================
