@@ -862,7 +862,7 @@
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>ref_radiooff_lpm4.ihex</state>
+          <state>test_lightuart.ihex</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
@@ -979,7 +979,11 @@
         <debug>1</debug>
         <option>
           <name>CUTest</name>
-          <state>###Uninitialized###</state>
+          <state>-I$TOOLKIT_DIR$\inc</state>
+          <state>-@$TOOLKIT_DIR$\bin\iar.cmd</state>
+          <state>-@$PROJ_DIR$\source.txt</state>
+          <state>-@$PROJ_DIR$\include.txt</state>
+          <state>--preinclude=$PROJ_DIR$\IAR_ULPAdvisor_Defs.h</state>
         </option>
         <option>
           <name>ULPRules</name>
@@ -2010,9 +2014,6 @@
       <data/>
     </settings>
   </configuration>
-  <file>
-    <name>$PROJ_DIR$\test_lightuart.c</name>
-  </file>
   <group>
     <name>drivers</name>
     <file>
@@ -2022,6 +2023,9 @@
       <name>$PROJ_DIR$\..\..\drivers\adc_sensor.h</name>
     </file>
   </group>
+  <file>
+    <name>$PROJ_DIR$\test_lightuart.c</name>
+  </file>
 </project>
 
 
