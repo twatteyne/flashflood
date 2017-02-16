@@ -2049,13 +2049,10 @@
       <name>$PROJ_DIR$\..\..\drivers\spi.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\..\drivers\timer_A.c</name>
-    </file>
-    <file>
       <name>$PROJ_DIR$\..\..\drivers\timer_a.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\..\drivers\timer_B.c</name>
+      <name>$PROJ_DIR$\..\..\drivers\timer_b.c</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\drivers\timer_b.h</name>
@@ -2076,6 +2073,9 @@
       <name>$PROJ_DIR$\competition.h</name>
     </file>
   </group>
+  <file>
+    <name>$PROJ_DIR$\..\..\drivers\timer_a.c</name>
+  </file>
 </project>
 
 
