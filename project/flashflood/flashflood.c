@@ -13,32 +13,11 @@
 
 //=========================== defines =========================================
 
-#define LIGHT_SAMPLE_PERIOD       100 // 3ms
+// mote addresses
 
 #define ADDR_SENSING_NODE         0xa0
 #define ADDR_SINK_NODE            0xab
 
-// sink pin toggle p2.3 when receiving data
-
-#define SUBTICK_SCHEDULE          224     // RETRANSMIT_DELAY<<5
-#define RETRANSMIT_DELAY          7     // 7@32768Hz = 210us
-
-#define LUX_THRESHOLD             400
-#define LUX_HYSTERESIS            100
-
-// txfifo dsn address (0x003)
-#define WRITE_TXFIFO_DSN_BYTE0    0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
-#define WRITE_TXFIFO_DSN_BYTE1    0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
-
-//==== frame content
-#define FRAME_CONTROL_BYTE0       0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
-#define FRAME_CONTROL_BYTE1       0x18 // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
-#define FRAME_LENGTH_DATA         (2+1+2+2+2) // 2B FCF, 1B DSN, 2B dest panId, 2B dest address, 2B CRC
-#define FRAME_LENGTH_ACK          (2+1+2)     // 2B FCF, 1B DSN,                                 2B CRC (per CC2420 datasheet, Figure 23)
-
-#define CHANNEL                   26
-
-//==== mote role
 #define SOURCE_ID                 0x00  // no source
 
 #define FIRST_HOP_1               0xba
@@ -54,6 +33,29 @@
 #define FOURTH_HOP_2              0x57
 
 #define DESTINATION_ID            0xdd
+
+// sensing
+
+#define LIGHT_SAMPLE_PERIOD       100 // @32kHz, 100=3ms
+#define LUX_THRESHOLD             400
+#define LUX_HYSTERESIS            100
+
+// sink pin toggle p2.3 when receiving data
+
+#define SUBTICK_SCHEDULE          224     // RETRANSMIT_DELAY<<5
+#define RETRANSMIT_DELAY          7     // 7@32768Hz = 210us
+
+// txfifo dsn address (0x003)
+#define WRITE_TXFIFO_DSN_BYTE0    0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
+#define WRITE_TXFIFO_DSN_BYTE1    0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
+
+//==== frame content
+#define FRAME_CONTROL_BYTE0       0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
+#define FRAME_CONTROL_BYTE1       0x18 // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
+#define FRAME_LENGTH_DATA         (2+1+2+2+2) // 2B FCF, 1B DSN, 2B dest panId, 2B dest address, 2B CRC
+#define FRAME_LENGTH_ACK          (2+1+2)     // 2B FCF, 1B DSN,                                 2B CRC (per CC2420 datasheet, Figure 23)
+
+#define CHANNEL                   26
 
 //=========================== statics =========================================
 
@@ -101,7 +103,7 @@ int main(void) {
     memset(&app_vars,0,sizeof(app_vars_t));
     memset(&address[0],0,8);
     
-        // disable watchdog timer
+    // disable watchdog timer
     WDTCTL     =  WDTPW + WDTHOLD;
    
     // setup clock speed
