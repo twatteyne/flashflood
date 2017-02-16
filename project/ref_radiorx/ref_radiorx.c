@@ -27,7 +27,7 @@ int main(void) {
     for (delay=0xffff;delay>0;delay--);
     
     // turn on radio osc
-    radio_rfOn();
+    radio_oscillatorOn();
     // change to rx state
     radio_rxNow();
    

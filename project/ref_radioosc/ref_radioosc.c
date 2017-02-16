@@ -27,7 +27,7 @@ int main(void) {
     for (delay=0xffff;delay>0;delay--);
     
     // turn on radio osc
-    radio_rfOn();
+    radio_oscillatorOn();
    
    __bis_SR_register(GIE+LPM3_bits);             // sleep
 }
