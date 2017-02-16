@@ -511,7 +511,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             app_vars.myHop = 1+neighborHop;
         } else {
             if (neighborHop>=app_vars.myHop){
-                // do not process if receive packet from node with higher rank than me
+                // do not process if receive packet from node with higher hop than me
                 return;
             } else {
                 app_vars.myHop = 1+neighborHop;
@@ -521,6 +521,12 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #ifdef LOCAL_SETUP
         P3OUT ^= 0x20;
 #endif
+        // update pin staus
+        if (rxHopDsn&0x80==0x80){
+            P2OUT |= 0x08;
+        } else {
+            P2OUT &= ~0x08;
+        }
         // the whole endOfAck process needs around 183us to finish, schedule a little bit more than this (e.g. 210us).
         TBCCR2   =  timestamp+app_vars.subticks;
         TBCCTL2  =  CCIE;
@@ -565,5 +571,34 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             // stop, I only need the MSB
             P4OUT  |=  0x04;
         } while(rxByte & 0x10);
+    } else {
+#ifdef LOCAL_SETUP
+        // no need on local setup
+#else   
+        if (packet_len ==  FRAME_LENGTH_DATA){
+            // update myHop
+            neighborHop = (rxHopDsn & 0x70)>>4;
+            if (app_vars.myHop==0){
+                if (app_vars.myId == ADDR_SENSING_NODE){
+                    // sensing node never relays
+                    return;
+                }
+                app_vars.myHop = 1+neighborHop;
+            } else {
+                if (neighborHop>=app_vars.myHop){
+                    // do not process if receive packet from node with higher hop than me
+                    return;
+                } else {
+                    app_vars.myHop = 1+neighborHop;
+                }
+            }
+            // update pin staus
+            if (rxHopDsn&0x80==0x80){
+                P2OUT |= 0x08;
+            } else {
+                P2OUT &= ~0x08;
+            }
+        }
+#endif
     }
 }
