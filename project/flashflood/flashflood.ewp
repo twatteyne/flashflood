@@ -670,7 +670,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state>competition.d43</state>
+          <state>flashflood.d43</state>
         </option>
         <option>
           <name>OutputFormat</name>
@@ -864,7 +864,7 @@
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>competition.ihex</state>
+          <state>flashflood.ihex</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
@@ -2070,10 +2070,10 @@
   <group>
     <name>project</name>
     <file>
-      <name>$PROJ_DIR$\competition.c</name>
+      <name>$PROJ_DIR$\flashflood.c</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\competition.h</name>
+      <name>$PROJ_DIR$\flashflood.h</name>
     </file>
   </group>
 </project>
