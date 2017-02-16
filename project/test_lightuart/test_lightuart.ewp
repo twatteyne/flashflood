@@ -325,7 +325,7 @@
         </option>
         <option>
           <name>newCCIncludePaths</name>
-          <state></state>
+          <state>$PROJ_DIR$\..\..\drivers</state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -2013,6 +2013,15 @@
   <file>
     <name>$PROJ_DIR$\test_lightuart.c</name>
   </file>
+  <group>
+    <name>drivers</name>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\adc_sensor.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\adc_sensor.h</name>
+    </file>
+  </group>
 </project>
 
 

@@ -2013,7 +2013,7 @@
     </settings>
   </configuration>
   <group>
-    <name>driver</name>
+    <name>drivers</name>
     <file>
       <name>$PROJ_DIR$\..\..\drivers\adc_sensor.c</name>
     </file>
