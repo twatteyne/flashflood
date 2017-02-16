@@ -1,6 +1,12 @@
 * schedule: http://wsn-testbed.it.uu.se:5000/
 * real-time Grafana: http://wsn-testbed.it.uu.se:3000/dashboard/db/experiment-overview?from=now-1m&to=now
 
+## setup
+
+| EUI64 | log file | rank | role |
+|-------|----------|------|------|
+|       |          |      |      |
+
 ## `#define`
 
 * `LOCAL_SETUP`
