@@ -5,7 +5,7 @@
 #include "radio.h"
 #include "cc2420.h"
 #include "msp430f1611.h"
-#include "competition.h"
+#include "flashflood.h"
 #include "string.h"
 #include "adc_sensor.h"
 
