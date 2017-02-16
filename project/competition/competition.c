@@ -234,6 +234,7 @@ void timer_a_cb_subtickCalculate(uint16_t timestamp){
 void timer_b_cb_endFrame(uint16_t timestamp){
     uint8_t             packet_len;
     uint8_t             rxLightRankDsn;
+    uint8_t             neighborDsn;
     uint8_t             rxByte;
     uint8_t             firstByte;
     uint8_t             secondByte;
@@ -295,11 +296,18 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 firstByte==FRAME_CONTROL_BYTE0 && 
                 secondByte==FRAME_CONTROL_BYTE1
             ){
-                // received packet
-                if (rxLightRankDsn&0x80==0x80){
-                    P2OUT |= 0x08;
-                } else {
-                    P2OUT &= ~0x08;
+                neighborDsn = rxLightRankDsn&0x0f;
+                if (
+                    (neighborDsn>app_vars.currentDsn && neighborDsn-app_vars.currentDsn  <=0x02) ||
+                    (neighborDsn<app_vars.currentDsn && 16+neighborDsn-app_vars.currentDsn<=0x02)
+                ){
+                    // received packet
+                    if (rxLightRankDsn&0x80==0x80){
+                        P2OUT |= 0x08;
+                    } else {
+                        P2OUT &= ~0x08;
+                    }
+                    app_vars.currentDsn = neighborDsn;
                 }
             }
         } else {
@@ -308,11 +316,18 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     firstByte==0x02 && 
                     secondByte==0x00
                 ){
-                    // received packet
-                    if (rxLightRankDsn&0x80==0x80){
-                        P2OUT |= 0x08;
-                    } else {
-                        P2OUT &= ~0x08;
+                    neighborDsn = rxLightRankDsn&0x0f;
+                    if (
+                        (neighborDsn>app_vars.currentDsn && neighborDsn-app_vars.currentDsn  <=0x02) ||
+                        (neighborDsn<app_vars.currentDsn && 16+neighborDsn-app_vars.currentDsn<=0x02)
+                    ){
+                        // received packet
+                        if (rxLightRankDsn&0x80==0x80){
+                            P2OUT |= 0x08;
+                        } else {
+                            P2OUT &= ~0x08;
+                        }
+                        app_vars.currentDsn = neighborDsn;
                     }
                 }
             }
