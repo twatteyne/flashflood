@@ -14,11 +14,13 @@
 //=========================== defines =========================================
 
 // mote addresses
-
+#ifdef LOCAL_SETUP
+#define ADDR_SENSING_NODE         0xdd
+#define ADDR_SINK_NODE            0x00
+#else
 #define ADDR_SENSING_NODE         0xa0
 #define ADDR_SINK_NODE            0xab
-
-#define SOURCE_ID                 0xdd  // no source
+#endif
 
 #define FIRST_HOP_1               0x0f
 #define FIRST_HOP_2               0x05
@@ -32,8 +34,6 @@
 #define FOURTH_HOP_1              0xc8
 #define FOURTH_HOP_2              0xba
 
-#define DESTINATION_ID            0x00
-
 // sensing
 
 #define LIGHT_SAMPLE_PERIOD       100 // @32kHz, 100=3ms
@@ -42,7 +42,7 @@
 
 // sink pin toggle p2.3 when receiving data
 
-#define SUBTICK_SCHEDULE          224     // RETRANSMIT_DELAY<<5
+#define SUBTICK_SCHEDULE          224   // RETRANSMIT_DELAY<<5
 #define RETRANSMIT_DELAY          7     // 7@32768Hz = 210us
 
 // txfifo dsn address (0x003)
@@ -58,35 +58,7 @@
 #define CHANNEL                   26
 
 //=========================== statics =========================================
-#ifdef LOCAL_SETUP
-static  uint8_t cc2420_shortadr_src[2] = {0x11,0x11};
-static  uint8_t cc2420_panid_src[2]    = {0x11,0x11};
-static  uint8_t cc2420_ieeeadr_src[8]  = {0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11};
 
-static  uint8_t cc2420_shortadr_hop1[2] = {0x22,0x22};
-static  uint8_t cc2420_panid_hop1[2]    = {0x22,0x22};
-static  uint8_t cc2420_ieeeadr_hop1[8]  = {0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22};
-
-static  uint8_t cc2420_shortadr_hop2[2] = {0x33,0x33};
-static  uint8_t cc2420_panid_hop2[2]    = {0x33,0x33};
-static  uint8_t cc2420_ieeeadr_hop2[8]  = {0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33};
-
-static  uint8_t cc2420_shortadr_hop3[2] = {0x44,0x44};
-static  uint8_t cc2420_panid_hop3[2]    = {0x44,0x44};
-static  uint8_t cc2420_ieeeadr_hop3[8]  = {0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44};
-
-static  uint8_t cc2420_shortadr_hop4[2] = {0x55,0x55};
-static  uint8_t cc2420_panid_hop4[2]    = {0x55,0x55};
-static  uint8_t cc2420_ieeeadr_hop4[8]  = {0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55};
-
-static  uint8_t cc2420_shortadr_dest[2] = {0x66,0x66};
-static  uint8_t cc2420_panid_dest[2]    = {0x66,0x66};
-static  uint8_t cc2420_ieeeadr_dest[8]  = {0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66};
-#else
-static  uint8_t cc2420_shortadr_cycle[2] = {0x11,0x11};
-static  uint8_t cc2420_panid_cycle[2]    = {0x11,0x11};
-static  uint8_t cc2420_ieeeadr_cycle[8]  = {0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11};
-#endif
 //=========================== variables =======================================
 
 typedef struct {
@@ -104,6 +76,10 @@ typedef struct {
     
     uint8_t             light_state;
     uint16_t            light_reading;
+    
+    uint8_t             cc2420_shortadr[2];
+    uint8_t             cc2420_panid[2];
+    uint8_t             cc2420_ieeeadr[16];
 } app_vars_t;
 
 app_vars_t app_vars;
@@ -237,71 +213,61 @@ int main(void) {
     
 #ifdef LOCAL_SETUP 
     switch(app_vars.myId){
-    case SOURCE_ID:
+    case ADDR_SENSING_NODE:
         app_vars.myHop = 0;
         app_vars.myRfId = 0x11;
-        // configure radio's short address; configure radio's PANID; configure radio's EUI64
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_src[0], 2);
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_src[0],2);
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_src[0],8);
       break;
     case FIRST_HOP_1:
     case FIRST_HOP_2:
         app_vars.myHop = 1;
         app_vars.myRfId = 0x22;
-        // configure radio's short address; configure radio's PANID; configure radio's EUI64
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_hop1[0], 2);
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_hop1[0],2);
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_hop1[0],8);
         break;
     case SECOND_HOP_1:
     case SECOND_HOP_2:
         app_vars.myHop = 2;
         app_vars.myRfId = 0x33;
-        // configure radio's short address; configure radio's PANID; configure radio's EUI64
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_hop2[0], 2);
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_hop2[0],2);
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_hop2[0],8);
         break;
     case THIRD_HOP_1:
     case THIRD_HOP_2:
         app_vars.myHop = 3;
         app_vars.myRfId = 0x44;
-        // configure radio's short address; configure radio's PANID; configure radio's EUI64
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_hop3[0], 2);
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_hop3[0],2);
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_hop3[0],8);
         break;
     case FOURTH_HOP_1:
     case FOURTH_HOP_2:
         app_vars.myHop = 4;
         app_vars.myRfId = 0x55;
-        // configure radio's short address; configure radio's PANID; configure radio's EUI64
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_hop4[0], 2);
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_hop4[0],2);
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_hop4[0],8);
         break;
-    case DESTINATION_ID:
+    case ADDR_SINK_NODE:
         app_vars.myHop = 5;
         app_vars.myRfId = 0x66;
-        // configure radio's short address; configure radio's PANID; configure radio's EUI64
-        cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_dest[0], 2);
-        cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_dest[0],2);
-        cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_dest[0],8);
         break;
     default:
         break;
     }
+    for (i=0;i<2;i++){
+        app_vars.cc2420_shortadr[i] = app_vars.myRfId;
+        app_vars.cc2420_panid[i]    = app_vars.myRfId;
+    }
+    for (i=0;i<8;i++){
+        app_vars.cc2420_ieeeadr[i]  = app_vars.myRfId;
+    }
 #else
+    for (i=0;i<2;i++){
+        app_vars.cc2420_shortadr[i] = 0x11;
+        app_vars.cc2420_panid[i]    = 0x11;
+    }
+    for (i=0;i<8;i++){
+        app_vars.cc2420_ieeeadr[i]  = 0x11;
+    }
+#endif
     // configure radio's short address
-    cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_cycle[0], 2);
+    cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&app_vars.cc2420_shortadr[0], 2);
     
     // configure radio's PANID
-    cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_cycle[0],2);
+    cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&app_vars.cc2420_panid[0],2);
     
     // configure radio's EUI64
-    cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_cycle[0],8);
-#endif
+    cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&app_vars.cc2420_ieeeadr[0],8);
     
     //==== create packet to transmit
     
@@ -320,11 +286,7 @@ int main(void) {
     radio_loadPacket(app_vars.packetTx,FRAME_LENGTH_DATA);
     radio_rxNow();
     
-#ifdef LOCAL_SETUP
-    if (app_vars.myId==SOURCE_ID){
-#else
     if (app_vars.myId==ADDR_SENSING_NODE){
-#endif
         TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
     }
@@ -340,11 +302,7 @@ int main(void) {
 
 void timer_a_cb_compare(void) {
     uint8_t iShouldSend;
-#ifdef LOCAL_SETUP
-    if (app_vars.myId==SOURCE_ID){
-#else
     if (app_vars.myId==ADDR_SENSING_NODE){
-#endif
         
         app_vars.light_reading = adc_sens_read_total_solar();
         // detect light state switches
@@ -486,11 +444,8 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     while ((IFG1 & URXIFG0)==0);
     IFG1   &= ~URXIFG0;
     P4OUT  |=  0x04;
-#ifdef LOCAL_SETUP
-    if (app_vars.myId==DESTINATION_ID){
-#else
+    
     if (app_vars.myId==ADDR_SINK_NODE){
-#endif
         if (packet_len == FRAME_LENGTH_DATA){
             if (
                 firstByte==FRAME_CONTROL_BYTE0 && 
