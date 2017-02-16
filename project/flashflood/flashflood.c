@@ -93,7 +93,8 @@ void timer_b_cb_endFrame(uint16_t timestamp);
 \brief The program starts executing here.
 */
 int main(void) {
-    uint8_t i,address[8];
+    uint8_t             i;
+    uint8_t             address[8];
     volatile uint16_t   delay;
     cc2420_status_t     cc2420_status;
     
@@ -163,8 +164,36 @@ int main(void) {
     cc2420_spiWriteReg(CC2420_MDMCTRL0_ADDR,&cc2420_status,0x0af2);
     
     // speed up time to TX: max. TX power (~0dBm), faster STXON->SFD timing (128us)
+    
+    // configure TXCTRL register
+    // 15:14 TXMIXBUF_CUR          10
+    //    13 TX_TURNAROUND           0
+    // 12:11 TXMIX_CAP_ARRAY          0 0
+    //  10:9 TXMIX_CURRENT               00
+    //   8:6 PA_CURRENT                    0 11
+    //     5 reserved                          1
+    //   4:0 PA_LEVEL                           1 1111
+    //                             1000 0000 1111 1111
+    //                                8    0    f    f
     cc2420_spiWriteReg(CC2420_TXCTRL_ADDR,  &cc2420_status,0x80ff);
+    
+    
     // apply correction recommended in datasheet
+    
+    // configure RXCTRL1 register
+    // 15:14 reserved          00
+    //    13 RXBPF_LOCUR         1 (recommended, see p 68 of datasheet)
+    //    12 RXBPF_MIDCUR         0
+    //    11 LOW_LOWGAIN            1
+    //    10 MED_LOWGAIN             0
+    //     9 HIGH_HGM                 1
+    //     8 MED_HGM                   0
+    //   7:6 LNA_CAP_ARRAY               01
+    //   5:4 RXMIX_TAIL                    01
+    //   3:2 RXMIX_VCM                        01
+    //   1:0 RXMIX_CURRENT                      10
+    //                         0010 1010 0101 0110
+    //                            2    a    5    6
     cc2420_spiWriteReg(CC2420_RXCTRL1_ADDR, &cc2420_status,0x2a56);
     
     // enable global interrupt
