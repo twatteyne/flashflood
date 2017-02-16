@@ -5,7 +5,13 @@
     <path>$WS_DIR$\autoack_no_panid\autoack_no_panid.ewp</path>
   </project>
   <project>
+    <path>$WS_DIR$\debug_lightvalue\debug_lightvalue.ewp</path>
+  </project>
+  <project>
     <path>$WS_DIR$\flashflood\flashflood.ewp</path>
+  </project>
+  <project>
+    <path>$WS_DIR$\flashflood_local\flashflood_local.ewp</path>
   </project>
   <project>
     <path>$WS_DIR$\ref_radiooff_lpm0\ref_radiooff_lpm0.ewp</path>
