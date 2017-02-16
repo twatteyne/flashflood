@@ -5,21 +5,6 @@
     <path>$WS_DIR$\flashflood\flashflood.ewp</path>
   </project>
   <project>
-    <path>$WS_DIR$\draughts\draughts.ewp</path>
-  </project>
-  <project>
-    <path>$WS_DIR$\energyRef\energyRef.ewp</path>
-  </project>
-  <project>
-    <path>$WS_DIR$\ft_autoack\ft_autoack.ewp</path>
-  </project>
-  <project>
-    <path>$WS_DIR$\ft_noSlot\ft_noSlot.ewp</path>
-  </project>
-  <project>
-    <path>$WS_DIR$\ft_sync\ft_sync.ewp</path>
-  </project>
-  <project>
     <path>$WS_DIR$\ref_radiooff_lpm0\ref_radiooff_lpm0.ewp</path>
   </project>
   <project>
