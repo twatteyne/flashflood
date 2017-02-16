@@ -15,24 +15,27 @@
 
 // mote addresses
 #ifdef LOCAL_SETUP
-#define ADDR_SENSING_NODE         0xdd
-#define ADDR_SINK_NODE            0x00
+    #define ADDR_SENSING_NODE     0xdd
+
+    #define ADDR_HOP1_A_NODE      0x0f
+    #define ADDR_HOP1_B_NODE      0x05
+
+    #define ADDR_HOP2_A_NODE      0x16
+    #define ADDR_HOP2_B_NODE      0x57
+
+    #define ADDR_HOP3_A_NODE      0x2b
+    #define ADDR_HOP3_B_NODE      0x5e
+
+    #define ADDR_HOP4_A_NODE      0xc8
+    #define ADDR_HOP4_B_NODE      0xba
+
+    #define ADDR_SINK_NODE        0x00
 #else
-#define ADDR_SENSING_NODE         0xa0
-#define ADDR_SINK_NODE            0xab
+    #define ADDR_SENSING_NODE     0xa0
+    #define ADDR_SINK_NODE        0xab
 #endif
 
-#define FIRST_HOP_1               0x0f
-#define FIRST_HOP_2               0x05
 
-#define SECOND_HOP_1              0x16
-#define SECOND_HOP_2              0x57
-
-#define THIRD_HOP_1               0x2b
-#define THIRD_HOP_2               0x5e
-
-#define FOURTH_HOP_1              0xc8
-#define FOURTH_HOP_2              0xba
 
 // sensing
 
@@ -217,23 +220,23 @@ int main(void) {
         app_vars.myHop = 0;
         app_vars.myRfId = 0x11;
       break;
-    case FIRST_HOP_1:
-    case FIRST_HOP_2:
+    case ADDR_HOP1_A_NODE:
+    case ADDR_HOP1_B_NODE:
         app_vars.myHop = 1;
         app_vars.myRfId = 0x22;
         break;
-    case SECOND_HOP_1:
-    case SECOND_HOP_2:
+    case ADDR_HOP2_A_NODE:
+    case ADDR_HOP2_B_NODE:
         app_vars.myHop = 2;
         app_vars.myRfId = 0x33;
         break;
-    case THIRD_HOP_1:
-    case THIRD_HOP_2:
+    case ADDR_HOP3_A_NODE:
+    case ADDR_HOP3_B_NODE:
         app_vars.myHop = 3;
         app_vars.myRfId = 0x44;
         break;
-    case FOURTH_HOP_1:
-    case FOURTH_HOP_2:
+    case ADDR_HOP4_A_NODE:
+    case ADDR_HOP4_B_NODE:
         app_vars.myHop = 4;
         app_vars.myRfId = 0x55;
         break;
