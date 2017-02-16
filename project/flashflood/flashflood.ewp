@@ -2067,15 +2067,9 @@
       <name>$PROJ_DIR$\..\..\inc\opendefs.h</name>
     </file>
   </group>
-  <group>
-    <name>project</name>
-    <file>
-      <name>$PROJ_DIR$\flashflood.c</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\flashflood.h</name>
-    </file>
-  </group>
+  <file>
+    <name>$PROJ_DIR$\flashflood.c</name>
+  </file>
 </project>
 
 
