@@ -35,8 +35,6 @@
     #define ADDR_SINK_NODE        0xab
 #endif
 
-
-
 // sensing
 
 #define LIGHT_SAMPLE_PERIOD       100 // @32kHz, 100=3ms
