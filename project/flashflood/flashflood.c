@@ -91,14 +91,14 @@ static  uint8_t cc2420_ieeeadr_cycle[8]  = {0x11,0x11,0x11,0x11,0x11,0x11,0x11,0
 
 typedef struct {
     uint8_t             rxpk_crc;
-    cc2420_status_t     cc2420_status;
     uint8_t             packetTx[FRAME_LENGTH_DATA];
     
     uint8_t             myId;
-    uint8_t             myRfId;
     uint8_t             currentDsn;
     uint8_t             myHop;
-    
+#ifdef LOCAL_SETUP
+    uint8_t             myRfId;
+#endif
     uint16_t            subticks;
     uint16_t            lastTimestamp;
     

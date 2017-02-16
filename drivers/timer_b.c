@@ -76,11 +76,11 @@ void timer_b_setPacketTobeSent(){
 __interrupt void TIMERB1_ISR (void) {
    uint16_t tbiv_local;
    tbiv_local = TBIV;
-#ifdef PIN_DEBUG
+#ifdef LOCAL_SETUP
    P6OUT |=  0x40;
 #endif   
    if (tbiv_local==0x0004){
-#ifdef PIN_DEBUG
+#ifdef LOCAL_SETUP
         P6OUT |=  0x80;
 #endif
         // send TXON strobe
@@ -98,7 +98,7 @@ __interrupt void TIMERB1_ISR (void) {
 
         TBCCR2   =  0;
         TBCCTL2 &= ~CCIE;
-#ifdef PIN_DEBUG
+#ifdef LOCAL_SETUP
         P6OUT &= ~0x80;
 #endif
    } else {
@@ -119,7 +119,7 @@ __interrupt void TIMERB1_ISR (void) {
             }
        }
    }
-#ifdef PIN_DEBUG
+#ifdef LOCAL_SETUP
    P6OUT &= ~0x40;
 #endif
    __bic_SR_register_on_exit(CPUOFF);

@@ -59,13 +59,13 @@ __interrupt void TIMERA1_ISR (void) {
    uint16_t timestamp;
    timestamp  = TBR;
    taiv_local = TAIV;
-#ifdef PIN_DEBUG
+#ifdef LOCAL_SETUP
       P3OUT |=  0x10;
 #endif
    if (taiv_local==0x0002) {
        // CCR1 compare happeded
        
-#ifdef PIN_DEBUG
+#ifdef LOCAL_SETUP
        P2OUT ^= 0x40;
 #endif
        timer_a_vars.CompareCCR1andReturnTBRcb(timestamp);
@@ -81,7 +81,7 @@ __interrupt void TIMERA1_ISR (void) {
           }
       }
    }
-#ifdef PIN_DEBUG
+#ifdef LOCAL_SETUP
    P3OUT &= ~0x10;
 #endif
    __bic_SR_register_on_exit(CPUOFF);
