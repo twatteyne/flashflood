@@ -2,9 +2,6 @@
 
 <workspace>
   <project>
-    <path>$WS_DIR$\autoack_no_panid\autoack_no_panid.ewp</path>
-  </project>
-  <project>
     <path>$WS_DIR$\debug_lightvalue\debug_lightvalue.ewp</path>
   </project>
   <project>
@@ -27,6 +24,9 @@
   </project>
   <project>
     <path>$WS_DIR$\ref_radiorx\ref_radiorx.ewp</path>
+  </project>
+  <project>
+    <path>$WS_DIR$\test_autoack_no_panid\test_autoack_no_panid.ewp</path>
   </project>
   <batchBuild/>
 </workspace>

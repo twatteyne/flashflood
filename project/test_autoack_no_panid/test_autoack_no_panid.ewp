@@ -670,7 +670,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state>autoack_no_panid.d43</state>
+          <state>test_autoack_no_panid.d43</state>
         </option>
         <option>
           <name>OutputFormat</name>
@@ -864,7 +864,7 @@
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>autoack_no_panid.ihex</state>
+          <state>test_autoack_no_panid.ihex</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
@@ -2052,7 +2052,7 @@
     </file>
   </group>
   <file>
-    <name>$PROJ_DIR$\autoack_no_panid.c</name>
+    <name>$PROJ_DIR$\test_autoack_no_panid.c</name>
   </file>
 </project>
 
