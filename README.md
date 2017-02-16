@@ -1,6 +1,17 @@
 * schedule: http://wsn-testbed.it.uu.se:5000/
 * real-time Grafana: http://wsn-testbed.it.uu.se:3000/dashboard/db/experiment-overview?from=now-1m&to=now
 
+## `#define`
+
+* `LOCAL_SETUP`
+    * enable debug pins on all motes
+    * change forwarding rule to force multi-hop
+    * different short addresses for different motes
+* `LIGHTPIN_ALLMOTES`
+    * toggle `P2.3` on all motes, not just sink mote
+* `UART_HOP`
+    * when retransmitting a DATA packet, the mote prints the hop count it will send (i.e. it's own)
+
 ## DSN contents
 
 ```
@@ -48,11 +59,11 @@
 
 ## pins
 
-| pin  | active when   | description |
-|------|---------------|-------------|
-| P2.3 |               | output pin on the sink node (possibly on all nodes) |
-| P3.4 | `LOCAL_SETUP` | high during Timer A ISR |
-| P6.6 | `LOCAL_SETUP` | high during Timer B ISR |
-| P2.6 | `LOCAL_SETUP` | toggle at beginning of calibration |
-| P3.5 | `LOCAL_SETUP` | toggle when mote decides to retransmit (after ACK) |
-| P6.7 | `LOCAL_SETUP` | TODO |
+| pin  | description |
+|------|-------------|
+| P2.3 | output pin on the sink node (possibly on all nodes) |
+| P3.4 | high during Timer A ISR |
+| P6.6 | high during Timer B ISR |
+| P2.6 | toggle at beginning of calibration |
+| P3.5 | toggle when mote decides to retransmit (after ACK) |
+| P6.7 | TODO |
