@@ -33,8 +33,8 @@
 //==== frame content
 #define FRAME_CONTROL_BYTE0       0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
 #define FRAME_CONTROL_BYTE1       0x18 // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
-#define FRAME_LENGTH_DATA         (2+1+2+2+2) // 2B fcf + 1B dsn + 2B dest panId + 2B dest address + 2B crc
-#define FRAME_LENGTH_ACK          5
+#define FRAME_LENGTH_DATA         (2+1+2+2+2) // 2B FCF, 1B DSN, 2B dest panId, 2B dest address, 2B CRC
+#define FRAME_LENGTH_ACK          (2+1+2)     // 2B FCF, 1B DSN,                                 2B CRC (per CC2420 datasheet, Figure 23)
 
 #define CHANNEL                   26
 

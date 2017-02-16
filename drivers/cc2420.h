@@ -7,8 +7,6 @@
 #ifndef __CC2420_H
 #define __CC2420_H
 
-#include "opendefs.h"
-
 //=========================== app-specific ====================================
 
 #define MIN_FRAME_LENGTH          2 // TODO: bump to FRAME_LENGTH_ACK?

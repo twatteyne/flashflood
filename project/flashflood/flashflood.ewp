@@ -2061,12 +2061,6 @@
       <name>$PROJ_DIR$\..\..\drivers\timer_b.h</name>
     </file>
   </group>
-  <group>
-    <name>inc</name>
-    <file>
-      <name>$PROJ_DIR$\..\..\inc\opendefs.h</name>
-    </file>
-  </group>
   <file>
     <name>$PROJ_DIR$\flashflood.c</name>
   </file>

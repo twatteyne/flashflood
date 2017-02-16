@@ -1,5 +1,4 @@
 #include "adc_sensor.h"
-#include "opendefs.h"
 
 //=========================== defines =========================================
 
