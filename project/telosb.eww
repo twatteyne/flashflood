@@ -2,16 +2,10 @@
 
 <workspace>
   <project>
-    <path>$WS_DIR$\autoack_no_panid\autoack_no_panid.ewp</path>
-  </project>
-  <project>
-    <path>$WS_DIR$\debug_lightvalue\debug_lightvalue.ewp</path>
+    <path>$WS_DIR$\flashflood_local\flashflood_local.ewp</path>
   </project>
   <project>
     <path>$WS_DIR$\flashflood\flashflood.ewp</path>
-  </project>
-  <project>
-    <path>$WS_DIR$\flashflood_local\flashflood_local.ewp</path>
   </project>
   <project>
     <path>$WS_DIR$\ref_radiooff_lpm0\ref_radiooff_lpm0.ewp</path>
@@ -28,7 +22,53 @@
   <project>
     <path>$WS_DIR$\ref_radiorx\ref_radiorx.ewp</path>
   </project>
-  <batchBuild/>
+  <project>
+    <path>$WS_DIR$\test_autoack_no_panid\test_autoack_no_panid.ewp</path>
+  </project>
+  <project>
+    <path>$WS_DIR$\test_lightuart\test_lightuart.ewp</path>
+  </project>
+  <batchBuild>
+    <batchDefinition>
+      <name>all debug</name>
+      <member>
+        <project>flashflood</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>flashflood_local</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>ref_radiooff_lpm0</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>ref_radiooff_lpm3</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>ref_radiooff_lpm4</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>ref_radioosc</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>ref_radiorx</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>test_autoack_no_panid</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>test_lightuart</project>
+        <configuration>Debug</configuration>
+      </member>
+    </batchDefinition>
+  </batchBuild>
 </workspace>
 
 
