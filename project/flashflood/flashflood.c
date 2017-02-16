@@ -1,35 +1,22 @@
+// general
+#include "string.h"
+// platform
+#include "msp430f1611.h"
+// drivers
+#include "adc_sensor.h"
+#include "cc2420.h"
+#include "eui64.h"
+#include "radio.h"
+#include "spi.h"
 #include "timer_a.h"
 #include "timer_b.h"
-#include "eui64.h"
-#include "spi.h"
-#include "radio.h"
-#include "cc2420.h"
-#include "msp430f1611.h"
-#include "string.h"
-#include "adc_sensor.h"
 
-//=========================== define =========================================
+//=========================== defines =========================================
 
-#define LIGHT_SAMPLE_PERIOD                    100 // 3ms
+#define LIGHT_SAMPLE_PERIOD    100 // 3ms
 
-typedef struct {
-    uint8_t             rxpk_crc;
-    cc2420_status_t     cc2420_status;
-    uint8_t             packetTx[FRAME_LENGTH];
-    
-    uint8_t             myId;
-    uint8_t             currentDsn;
-    uint8_t             myRank;
-    
-    uint16_t            subticks;
-    uint16_t            lastTimestamp;
-    
-    uint8_t             light_state;
-    uint16_t            light_reading;
-} app_vars_t;
-
-#define SENSING_NODE           0xa0
-#define SINK_NODE              0xab
+#define ADDR_SENSING_NODE      0xa0
+#define ADDR_SINK_NODE         0xab
 
 // sink pin toggle p2.3 when receiving data
 
@@ -48,6 +35,24 @@ typedef struct {
 static  uint8_t cc2420_shortadr_cycle[2] = {0x11,0x11};
 static  uint8_t cc2420_panid_cycle[2]    = {0x11,0x11};
 static  uint8_t cc2420_ieeeadr_cycle[8]  = {0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11};
+
+//=========================== statics =========================================
+
+typedef struct {
+    uint8_t             rxpk_crc;
+    cc2420_status_t     cc2420_status;
+    uint8_t             packetTx[FRAME_LENGTH];
+    
+    uint8_t             myId;
+    uint8_t             currentDsn;
+    uint8_t             myRank;
+    
+    uint16_t            subticks;
+    uint16_t            lastTimestamp;
+    
+    uint8_t             light_state;
+    uint16_t            light_reading;
+} app_vars_t;
 
 app_vars_t app_vars;
 
@@ -171,7 +176,7 @@ int main(void) {
     eui64_get(&address[0]);
     app_vars.myId = address[7];
     
-    if (app_vars.myId==SENSING_NODE){
+    if (app_vars.myId==ADDR_SENSING_NODE){
         TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
     }
@@ -187,7 +192,7 @@ int main(void) {
 
 void timer_a_cb_compare(void) {
     uint8_t iShouldSend;
-    if (app_vars.myId==SENSING_NODE){
+    if (app_vars.myId==ADDR_SENSING_NODE){
         
         app_vars.light_reading = adc_sens_read_total_solar();
         // detect light state switches
@@ -326,7 +331,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     IFG1   &= ~URXIFG0;
     P4OUT  |=  0x04;
     
-    if (app_vars.myId==SINK_NODE){
+    if (app_vars.myId==ADDR_SINK_NODE){
         if (packet_len == FRAME_LENGTH){
             if (
                 firstByte==FRAME_CONTROL_BYTE0 && 
@@ -375,8 +380,8 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     if (packet_len ==  ACK_LENGTH){
         neighborRank = (rxLightRankDsn & 0x70)>>4;
         if (app_vars.myRank==0){
-            if (app_vars.myId == SENSING_NODE){
-                // sensing node never relay 
+            if (app_vars.myId == ADDR_SENSING_NODE){
+                // sensing node never relays
                 return;
             }
             app_vars.myRank = 1+neighborRank;
