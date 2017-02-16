@@ -1,3 +1,6 @@
+* schedule: http://wsn-testbed.it.uu.se:5000/
+* real-time Grafana: http://wsn-testbed.it.uu.se:3000/dashboard/db/experiment-overview?from=now-1m&to=now
+
 ## reference power consumption
 
 | Project             | explanation         | raw results                                                                                                        | average current |
