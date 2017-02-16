@@ -51,8 +51,8 @@
 | pin  | active when   | description |
 |------|---------------|-------------|
 | P2.3 |               | output pin on the sink node (possibly on all nodes) |
-| P6.6 | `LOCAL_SETUP` | high during Timer B ISR |
-| P6.7 | `LOCAL_SETUP` | TODO|
 | P3.4 | `LOCAL_SETUP` | high during Timer A ISR |
+| P6.6 | `LOCAL_SETUP` | high during Timer B ISR |
 | P2.6 | `LOCAL_SETUP` | toggle at beginning of calibration |
 | P3.5 | `LOCAL_SETUP` | toggle when mote decides to retransmit (after ACK) |
+| P6.7 | `LOCAL_SETUP` | TODO |
