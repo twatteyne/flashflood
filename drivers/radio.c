@@ -49,7 +49,7 @@ void radio_setFrequency(uint8_t frequency) {
    radio_vars.state = RADIOSTATE_FREQUENCY_SET;
 }
 
-void radio_rfOn(void) {   
+void radio_oscillatorOn(void) {   
    cc2420_spiStrobe(CC2420_SXOSCON, &radio_vars.radioStatusByte);
    while (radio_vars.radioStatusByte.xosc16m_stable==0) {
       cc2420_spiStrobe(CC2420_SNOP, &radio_vars.radioStatusByte);

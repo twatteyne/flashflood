@@ -8,8 +8,8 @@
 
 typedef struct {
    timer_a_cbt    overflowCb;
-   timer_a_cbt    compareCb;
-   timer_a_capture_cbt    subtickCalculateCb;
+   timer_a_cbt    compareCCR2Cb;
+   timer_a_capture_cbt    CompareCCR1andReturnTBRcb;
    uint16_t last_compare_value;
 } timer_a_vars_t;
 
@@ -22,9 +22,6 @@ timer_a_vars_t timer_a_vars;
 void timer_a_init() {
     // clear local variables
     memset(&timer_a_vars,0,sizeof(timer_a_vars_t));
-        // radio's SFD pin connected to P4.1
-    P4DIR   &= ~0x02; // input
-    P4SEL   |=  0x02; // in CCI1a/B mode
     
     // set CCRA0 registers
     TACCR0   =  0;
@@ -43,15 +40,15 @@ void timer_a_init() {
 }
 
 void timer_a_setOverflowCb(timer_a_cbt cb) {
-    timer_a_vars.overflowCb     = cb;
+    timer_a_vars.overflowCb           = cb;
 }
 
-void timer_a_setCompareCb(timer_a_cbt cb) {
-    timer_a_vars.compareCb      = cb;
+void timer_a_setCompareCCR2Cb(timer_a_cbt cb) {
+    timer_a_vars.compareCCR2Cb         = cb;
 }
 
-void timer_a_setSubtickCalculateCb(timer_a_capture_cbt cb) {
-    timer_a_vars.subtickCalculateCb = cb;
+void timer_a_setCompareCCR1andReturnTBRcb(timer_a_capture_cbt cb) {
+    timer_a_vars.CompareCCR1andReturnTBRcb    = cb;
 }
 
 //=========================== interrup handlers ===============================
@@ -66,13 +63,15 @@ __interrupt void TIMERA1_ISR (void) {
       P3OUT |=  0x10;
 #endif
    if (taiv_local==0x0002) {
+       // CCR1 compare happeded
+       
 #ifdef PIN_DEBUG
-      P2OUT ^= 0x40;
+       P2OUT ^= 0x40;
 #endif
-      timer_a_vars.subtickCalculateCb(timestamp);
+       timer_a_vars.CompareCCR1andReturnTBRcb(timestamp);
    } else {
       if (taiv_local==0x0004) {
-          timer_a_vars.compareCb();
+          timer_a_vars.compareCCR2Cb();
       } else {
           if (taiv_local==0x000a){
               if (timer_a_vars.overflowCb!=_NULL) {

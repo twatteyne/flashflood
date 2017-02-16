@@ -32,6 +32,10 @@ void timer_b_init() {
     // clear local variables
     memset(&timer_b_vars,0,sizeof(timer_b_vars_t));
     
+    // radio's SFD pin connected to P4.1 (timer B capture CCR1)
+    P4DIR   &= ~0x02; // input
+    P4SEL   |=  0x02; // in CCI1a/B mode
+    
     // CCR1 in capture mode
     TBCCTL1  =  CM_3+SCS+CAP+CCIE;
     TBCCR1   =  0;

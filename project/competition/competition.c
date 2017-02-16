@@ -80,11 +80,12 @@ int main(void) {
     spi_init();
     adc_sensor_init();
     
-    timer_a_setSubtickCalculateCb(timer_a_cb_subtickCalculate);
-    timer_a_setCompareCb(timer_a_cb_compare);
+    timer_a_setCompareCCR1andReturnTBRcb(timer_a_cb_subtickCalculate);
+    timer_a_setCompareCCR2Cb(timer_a_cb_compare);
     timer_b_setEndFrameCb(timer_b_cb_endFrame);
     
-    /**** initialize radio */
+    //==== switch radio on
+    
     // initialize pins
     P4DIR     |=  0x20;                           // [P4.5] radio VREG:  output
     P4DIR     |=  0x40;                           // [P4.6] radio reset: output
@@ -97,30 +98,48 @@ int main(void) {
     // set radio RESET pin high
     P4OUT |=  0x40;
     for (delay=0xffff;delay>0;delay--);
-    // 3 leading zero's (IEEE802.15.4 compliant)
-    // turn on auto ack
-    // turn on auto crc 
-    // turn On address recognition 
-    // accept all frame types
-    cc2420_spiWriteReg(CC2420_MDMCTRL0_ADDR,&cc2420_status,0x2af2);
+    
+    //==== configure radio
+    
+    // configure MDMCTRL0 register
+    // 15:14 reserved             00
+    //    13 RESERVED_FRAME_MODE    0
+    //    12 PAN_COORDINATOR         0
+    //    11 ADDR_DECODE               1
+    //  10:8 CCA_HYST                   010
+    //   7:6 CCA_MODE                       11
+    //     5 AUTOCRC                          1
+    //     4 AUTOACK                           1         <===
+    //   3:0 PREAMBLE_LENGTH                     0010
+    //                            0000 1010 1111 0010
+    //                               0    a    f    2
+    cc2420_spiWriteReg(CC2420_MDMCTRL0_ADDR,&cc2420_status,0x0af2);
+    
     // speed up time to TX: max. TX power (~0dBm), faster STXON->SFD timing (128us)
-    cc2420_spiWriteReg(CC2420_TXCTRL_ADDR,&cc2420_status,0x80ff);
+    cc2420_spiWriteReg(CC2420_TXCTRL_ADDR,  &cc2420_status,0x80ff);
     // apply correction recommended in datasheet
-    cc2420_spiWriteReg(CC2420_RXCTRL1_ADDR,&cc2420_status,0x2a56);
+    cc2420_spiWriteReg(CC2420_RXCTRL1_ADDR, &cc2420_status,0x2a56);
     
     // enable global interrupt
     __bis_SR_register(GIE);
-
-    /**** write short addr, panid and ieee addr */
-    radio_rfOn();
-    // write short address
+    
+    //==== configure radio
+    
+    // per datasheet Section 13.5, "the crystal oscillator must be running when accessing the RAM."
+    radio_oscillatorOn();
+    
+    // configure radio's short address
     cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_cycle[0], 2);
-    // write panId
+    
+    // configure radio's PANID
     cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_cycle[0],2);
-    // write 64-bit ieee address
+    
+    // configure radio's EUI64
     cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_cycle[0],8);
-
-    //fcf is always the same
+    
+    //==== create packet to transmit
+    
+    // fcf is always the same
     app_vars.packetTx[0] = FRAME_CONTROL_BYTE0; // fcf byte0
     app_vars.packetTx[1] = FRAME_CONTROL_BYTE1; // fcf byte1
     for (i=0;i<4;i++){
