@@ -19,13 +19,12 @@ int main(void) {
     DCOCTL    =  DCO0 | DCO1 | DCO2;             // MCLK at 8MHz
     BCSCTL1   =  RSEL0 | RSEL1 | RSEL2;          // MCLK at 8MHz
     
-    // setup UART
+    // setup UART (115200 baud)
     P3SEL     =  0xC0;                           // P3.6,7 = UART1TX/RX
-    //9600 baud, clocked from 32kHz ACLK
     ME2      |=  UTXE1 + URXE1;                  // enable UART1 TX/RX
     UCTL1    |=  CHAR;                           // 8-bit character
-    UTCTL1   |=  SSEL0;                          // clocking from ACLK
-    UBR01     =  0x03;                           // 32768/9600 = 3.41
+    UTCTL1   |=  SSEL1;                          // clocking from SMCLK
+    UBR01     =  41;                             // 4.8MHz/115200 - 41.66
     UBR11     =  0x00;                           //
     UMCTL1    =  0x4A;                           // modulation
     UCTL1    &= ~SWRST;                          // clear UART1 reset bit
