@@ -13,35 +13,60 @@
 
 //=========================== defines =========================================
 
-#define LIGHT_SAMPLE_PERIOD    100 // 3ms
+#define LIGHT_SAMPLE_PERIOD       100 // 3ms
 
-#define ADDR_SENSING_NODE      0xa0
-#define ADDR_SINK_NODE         0xab
+#define ADDR_SENSING_NODE         0xa0
+#define ADDR_SINK_NODE            0xab
 
 // sink pin toggle p2.3 when receiving data
 
-#define SUBTICK_SCHEDULE        224     // RETRANSMIT_DELAY<<5
+#define SUBTICK_SCHEDULE          224     // RETRANSMIT_DELAY<<5
 #define RETRANSMIT_DELAY          7     // 7@32768Hz = 210us
 
-#define LUX_THRESHOLD           400
-#define LUX_HYSTERESIS          100
+#define LUX_THRESHOLD             400
+#define LUX_HYSTERESIS            100
 
 // txfifo dsn address (0x003)
-#define WRITE_TXFIFO_DSN_BYTE0  0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
-#define WRITE_TXFIFO_DSN_BYTE1  0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
+#define WRITE_TXFIFO_DSN_BYTE0    0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
+#define WRITE_TXFIFO_DSN_BYTE1    0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
 
-//=========================== variables =======================================
+//==== frame content
+#define FRAME_CONTROL_BYTE0       0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
+#define FRAME_CONTROL_BYTE1       0x18 // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
+#define FRAME_LENGTH_DATA         (2+1+2+2+2) // 2B fcf + 1B dsn + 2B dest panId + 2B dest address + 2B crc
+#define FRAME_LENGTH_ACK          5
+
+#define CHANNEL                   26
+
+//==== mote role
+#define SOURCE_ID                 0x00  // no source
+
+#define FIRST_HOP_1               0xba
+#define FIRST_HOP_2               0xc8
+
+#define SECOND_HOP_1              0x0f
+#define SECOND_HOP_2              0x05
+
+#define THIRD_HOP_1               0x2b
+#define THIRD_HOP_2               0x5e
+
+#define FOURTH_HOP_1              0x16
+#define FOURTH_HOP_2              0x57
+
+#define DESTINATION_ID            0xdd
+
+//=========================== statics =========================================
 
 static  uint8_t cc2420_shortadr_cycle[2] = {0x11,0x11};
 static  uint8_t cc2420_panid_cycle[2]    = {0x11,0x11};
 static  uint8_t cc2420_ieeeadr_cycle[8]  = {0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11};
 
-//=========================== statics =========================================
+//=========================== variables =======================================
 
 typedef struct {
     uint8_t             rxpk_crc;
     cc2420_status_t     cc2420_status;
-    uint8_t             packetTx[FRAME_LENGTH];
+    uint8_t             packetTx[FRAME_LENGTH_DATA];
     
     uint8_t             myId;
     uint8_t             currentDsn;
@@ -169,7 +194,7 @@ int main(void) {
     }
     
     radio_setFrequency(CHANNEL);
-    radio_loadPacket(app_vars.packetTx,FRAME_LENGTH);
+    radio_loadPacket(app_vars.packetTx,FRAME_LENGTH_DATA);
     radio_rxNow();
     
     // get eui address
@@ -332,7 +357,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     P4OUT  |=  0x04;
     
     if (app_vars.myId==ADDR_SINK_NODE){
-        if (packet_len == FRAME_LENGTH){
+        if (packet_len == FRAME_LENGTH_DATA){
             if (
                 firstByte==FRAME_CONTROL_BYTE0 && 
                 secondByte==FRAME_CONTROL_BYTE1
@@ -352,7 +377,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 }
             }
         } else {
-            if (packet_len == ACK_LENGTH){
+            if (packet_len == FRAME_LENGTH_ACK){
                 if (
                     firstByte==0x02 && 
                     secondByte==0x00
@@ -377,7 +402,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     }
     
     // non SINK node; only check on ACK
-    if (packet_len ==  ACK_LENGTH){
+    if (packet_len ==  FRAME_LENGTH_ACK){
         neighborRank = (rxLightRankDsn & 0x70)>>4;
         if (app_vars.myRank==0){
             if (app_vars.myId == ADDR_SENSING_NODE){
