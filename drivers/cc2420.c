@@ -8,7 +8,6 @@
 #include "cc2420.h"
 #include "spi.h"
 
-
 void cc2420_spiStrobe(uint8_t strobe, cc2420_status_t* statusRead) {
    uint8_t  spi_tx_buffer[1];
    
@@ -124,10 +123,10 @@ void cc2420_spiReadRxFifo(cc2420_status_t* statusRead,
    *pLenRead            = spi_rx_buffer[1];
    
    // never receive packet longer than 9, avoid wrong memory accessing
-   if (*pLenRead>2 && *pLenRead<=FRAME_LENGTH) {
+   if (*pLenRead>2 && *pLenRead<=MAX_FRAME_LENGTH) {
       // valid length
       
-      //read packet
+      // read packet
       spi_txrx(
          spi_tx_buffer,           // bufTx
          *pLenRead,               // lenbufTx

@@ -1,36 +1,83 @@
+// general
+#include "string.h"
+// platform
+#include "msp430f1611.h"
+// drivers
+#include "adc_sensor.h"
+#include "cc2420.h"
+#include "eui64.h"
+#include "radio.h"
+#include "spi.h"
 #include "timer_a.h"
 #include "timer_b.h"
-#include "eui64.h"
-#include "spi.h"
-#include "radio.h"
-#include "cc2420.h"
-#include "msp430f1611.h"
-#include "competition.h"
-#include "string.h"
-#include "adc_sensor.h"
 
-//=========================== define =========================================
+//=========================== defines =========================================
 
-#define SENSING_NODE           0xa0
-#define SINK_NODE              0xab
+#define LIGHT_SAMPLE_PERIOD       100 // 3ms
+
+#define ADDR_SENSING_NODE         0xa0
+#define ADDR_SINK_NODE            0xab
 
 // sink pin toggle p2.3 when receiving data
 
-#define SUBTICK_SCHEDULE        224     // RETRANSMIT_DELAY<<5
+#define SUBTICK_SCHEDULE          224     // RETRANSMIT_DELAY<<5
 #define RETRANSMIT_DELAY          7     // 7@32768Hz = 210us
 
-#define LUX_THRESHOLD           400
-#define LUX_HYSTERESIS          100
+#define LUX_THRESHOLD             400
+#define LUX_HYSTERESIS            100
 
 // txfifo dsn address (0x003)
-#define WRITE_TXFIFO_DSN_BYTE0  0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
-#define WRITE_TXFIFO_DSN_BYTE1  0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
+#define WRITE_TXFIFO_DSN_BYTE0    0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
+#define WRITE_TXFIFO_DSN_BYTE1    0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
 
-//=========================== variables =======================================
+//==== frame content
+#define FRAME_CONTROL_BYTE0       0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
+#define FRAME_CONTROL_BYTE1       0x18 // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
+#define FRAME_LENGTH_DATA         (2+1+2+2+2) // 2B fcf + 1B dsn + 2B dest panId + 2B dest address + 2B crc
+#define FRAME_LENGTH_ACK          5
+
+#define CHANNEL                   26
+
+//==== mote role
+#define SOURCE_ID                 0x00  // no source
+
+#define FIRST_HOP_1               0xba
+#define FIRST_HOP_2               0xc8
+
+#define SECOND_HOP_1              0x0f
+#define SECOND_HOP_2              0x05
+
+#define THIRD_HOP_1               0x2b
+#define THIRD_HOP_2               0x5e
+
+#define FOURTH_HOP_1              0x16
+#define FOURTH_HOP_2              0x57
+
+#define DESTINATION_ID            0xdd
+
+//=========================== statics =========================================
 
 static  uint8_t cc2420_shortadr_cycle[2] = {0x11,0x11};
 static  uint8_t cc2420_panid_cycle[2]    = {0x11,0x11};
 static  uint8_t cc2420_ieeeadr_cycle[8]  = {0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11};
+
+//=========================== variables =======================================
+
+typedef struct {
+    uint8_t             rxpk_crc;
+    cc2420_status_t     cc2420_status;
+    uint8_t             packetTx[FRAME_LENGTH_DATA];
+    
+    uint8_t             myId;
+    uint8_t             currentDsn;
+    uint8_t             myRank;
+    
+    uint16_t            subticks;
+    uint16_t            lastTimestamp;
+    
+    uint8_t             light_state;
+    uint16_t            light_reading;
+} app_vars_t;
 
 app_vars_t app_vars;
 
@@ -80,11 +127,12 @@ int main(void) {
     spi_init();
     adc_sensor_init();
     
-    timer_a_setSubtickCalculateCb(timer_a_cb_subtickCalculate);
-    timer_a_setCompareCb(timer_a_cb_compare);
+    timer_a_setCompareCCR1andReturnTBRcb(timer_a_cb_subtickCalculate);
+    timer_a_setCompareCCR2Cb(timer_a_cb_compare);
     timer_b_setEndFrameCb(timer_b_cb_endFrame);
     
-    /**** initialize radio */
+    //==== switch radio on
+    
     // initialize pins
     P4DIR     |=  0x20;                           // [P4.5] radio VREG:  output
     P4DIR     |=  0x40;                           // [P4.6] radio reset: output
@@ -97,30 +145,48 @@ int main(void) {
     // set radio RESET pin high
     P4OUT |=  0x40;
     for (delay=0xffff;delay>0;delay--);
-    // 3 leading zero's (IEEE802.15.4 compliant)
-    // turn on auto ack
-    // turn on auto crc 
-    // turn On address recognition 
-    // accept all frame types
-    cc2420_spiWriteReg(CC2420_MDMCTRL0_ADDR,&cc2420_status,0x2af2);
+    
+    //==== configure radio
+    
+    // configure MDMCTRL0 register
+    // 15:14 reserved             00
+    //    13 RESERVED_FRAME_MODE    0
+    //    12 PAN_COORDINATOR         0
+    //    11 ADDR_DECODE               1
+    //  10:8 CCA_HYST                   010
+    //   7:6 CCA_MODE                       11
+    //     5 AUTOCRC                          1
+    //     4 AUTOACK                           1         <===
+    //   3:0 PREAMBLE_LENGTH                     0010
+    //                            0000 1010 1111 0010
+    //                               0    a    f    2
+    cc2420_spiWriteReg(CC2420_MDMCTRL0_ADDR,&cc2420_status,0x0af2);
+    
     // speed up time to TX: max. TX power (~0dBm), faster STXON->SFD timing (128us)
-    cc2420_spiWriteReg(CC2420_TXCTRL_ADDR,&cc2420_status,0x80ff);
+    cc2420_spiWriteReg(CC2420_TXCTRL_ADDR,  &cc2420_status,0x80ff);
     // apply correction recommended in datasheet
-    cc2420_spiWriteReg(CC2420_RXCTRL1_ADDR,&cc2420_status,0x2a56);
+    cc2420_spiWriteReg(CC2420_RXCTRL1_ADDR, &cc2420_status,0x2a56);
     
     // enable global interrupt
     __bis_SR_register(GIE);
-
-    /**** write short addr, panid and ieee addr */
-    radio_rfOn();
-    // write short address
+    
+    //==== configure radio
+    
+    // per datasheet Section 13.5, "the crystal oscillator must be running when accessing the RAM."
+    radio_oscillatorOn();
+    
+    // configure radio's short address
     cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&cc2420_shortadr_cycle[0], 2);
-    // write panId
+    
+    // configure radio's PANID
     cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&cc2420_panid_cycle[0],2);
-    // write 64-bit ieee address
+    
+    // configure radio's EUI64
     cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&cc2420_ieeeadr_cycle[0],8);
-
-    //fcf is always the same
+    
+    //==== create packet to transmit
+    
+    // fcf is always the same
     app_vars.packetTx[0] = FRAME_CONTROL_BYTE0; // fcf byte0
     app_vars.packetTx[1] = FRAME_CONTROL_BYTE1; // fcf byte1
     for (i=0;i<4;i++){
@@ -128,14 +194,14 @@ int main(void) {
     }
     
     radio_setFrequency(CHANNEL);
-    radio_loadPacket(app_vars.packetTx,FRAME_LENGTH);
+    radio_loadPacket(app_vars.packetTx,FRAME_LENGTH_DATA);
     radio_rxNow();
     
     // get eui address
     eui64_get(&address[0]);
     app_vars.myId = address[7];
     
-    if (app_vars.myId==SENSING_NODE){
+    if (app_vars.myId==ADDR_SENSING_NODE){
         TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
     }
@@ -151,7 +217,7 @@ int main(void) {
 
 void timer_a_cb_compare(void) {
     uint8_t iShouldSend;
-    if (app_vars.myId==SENSING_NODE){
+    if (app_vars.myId==ADDR_SENSING_NODE){
         
         app_vars.light_reading = adc_sens_read_total_solar();
         // detect light state switches
@@ -290,8 +356,8 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     IFG1   &= ~URXIFG0;
     P4OUT  |=  0x04;
     
-    if (app_vars.myId==SINK_NODE){
-        if (packet_len == FRAME_LENGTH){
+    if (app_vars.myId==ADDR_SINK_NODE){
+        if (packet_len == FRAME_LENGTH_DATA){
             if (
                 firstByte==FRAME_CONTROL_BYTE0 && 
                 secondByte==FRAME_CONTROL_BYTE1
@@ -311,7 +377,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 }
             }
         } else {
-            if (packet_len == ACK_LENGTH){
+            if (packet_len == FRAME_LENGTH_ACK){
                 if (
                     firstByte==0x02 && 
                     secondByte==0x00
@@ -336,11 +402,11 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     }
     
     // non SINK node; only check on ACK
-    if (packet_len ==  ACK_LENGTH){
+    if (packet_len ==  FRAME_LENGTH_ACK){
         neighborRank = (rxLightRankDsn & 0x70)>>4;
         if (app_vars.myRank==0){
-            if (app_vars.myId == SENSING_NODE){
-                // sensing node never relay 
+            if (app_vars.myId == ADDR_SENSING_NODE){
+                // sensing node never relays
                 return;
             }
             app_vars.myRank = 1+neighborRank;

@@ -9,6 +9,11 @@
 
 #include "opendefs.h"
 
+//=========================== app-specific ====================================
+
+#define MIN_FRAME_LENGTH          2 // TODO: bump to FRAME_LENGTH_ACK?
+#define MAX_FRAME_LENGTH          9 // see variable FRAME_LENGTH_DATA
+
 //=========================== spi flags =======================================
 
 #define CC2420_FLAG_READ          0x40
