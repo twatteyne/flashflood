@@ -1,6 +1,19 @@
 * schedule: http://wsn-testbed.it.uu.se:5000/
 * real-time Grafana: http://wsn-testbed.it.uu.se:3000/dashboard/db/experiment-overview?from=now-1m&to=now
 
+## DSN contents
+
+```
+  7 6 5 4 3 2 1 0
+ +-+-+-+-+-+-+-+-+
+ |L| hop |  seq  |
+ +-+-+-+-+-+-+-+-+
+```
+
+* `L`: state light (0=off, 1=high)
+* `seq`: increments at each new light switch
+* `hop`: sensing node is hop 0
+
 ## reference power consumption
 
 | Project             | explanation         | raw results                                                                                                        | average current |
@@ -13,32 +26,33 @@
 
 ## Timer A
 
-32 kHz (ACLK), continuous mode
+* 32 kHz (ACLK), continuous mode
+* never stopped, rolls over ever 2s
 
-| interrupt      | brief                         | trigger time             | interrupt routine | comment |
-|----------------|-------------------------------|--------------------------|-------------------|---------|
-| `CCR1` compare | calculating subticks          | every 224 ticks (6836us) | read the TB register first, then calculate the difference (offset) to the TB value recorded at last interrupt. Subticks = offset<<5||
-| `CCR2` compare | sampling light sensor         | every 100 ticks (3050us) | detect whether light changed its status, if so, send a data packet | only for sensing node |
-| `overflow`     | do nothing                    | every 65536 ticks        | none              | |
+| interrupt      | description |
+|----------------|-------------|
+| `CCR1` compare | Used to calibrate ~5 MHz clock speed: how many subticks in 7 ticks?. Fires 32*7 ticks (6836us), compare TBR against last value of TBR. Then `value<<5` is the number of subticks in 7 ticks |
+| `CCR2` compare | Used to trigger light sensor sampling. Fires every 100 ticks (~3050us) |
+| `overflow`     | _enabled by default, but no action_ |
 
 ## Timer B
 
-5 MHz (SMCLK), continuous mode
+* 5 MHz (SMCLK), continuous mode
+* never stopped (TODO: needs fixing)
 
-| interrupt        | brief                             | trigger time                                         | interrupt routine | comment |
-|------------------|-----------------------------------|------------------------------------------------------|-------------------|---------|
-| `CCR1` capture   | capture on radio SFD pin          | rising or falling edge of SFD pin                    | first read the length, FCF and DSN field of the frame, if this is ACK and the DSN is newer than me, re-transmit data packet | only call on end of received frame |
-| `CCR2` compare   | execute data transmission         | subticks (around 213.5us) after end of receiving ACK | send TXON strobe for sending data | |
-| `overflow`       | do nothing                        | every 65536 ticks                                    | none              | |
-
+| interrupt        | description |
+|------------------|-------------|
+| `CCR1` capture   | Triggered by the SFD pin toggling, triggers an interrupt. Do nothing on rising edge (start of frame). On falling edge (end of frame), read packet and schedule data transmission, if appropriate. |
+| `CCR2` compare   | Fires when it's time to forward the packet, around 213.5us after end of frame of the ACK |
+| `overflow`       | _enabled by default, but no action_ |
 
 ## pins
 
-| pin  | when high                           | when low							| when toggle |
-|------|-------------------------------------|-----------------------------------|-------------|
-| P2.3 | light is on                         |  light is off                     ||
-| P6.6 | interrupt routine of timer B starts |  interrupt routine of timer B end ||
-| P6.7 | start of sending TXON strobe        |  TXON strobe senddone             ||
-| P3.4 | interrupt routine of timer A starts |  interrupt routine of timer A end ||
-| P2.6 |                                     |                                   | `CCR1` interrupt of timer A trigger |
-| P3.5 |                                     |                                   | I need re-transmit later            |
+| pin  | active when   | description |
+|------|---------------|-------------|
+| P2.3 |               | output pin on the sink node (possibly on all nodes) |
+| P6.6 | `LOCAL_SETUP` | high during Timer B ISR |
+| P6.7 | `LOCAL_SETUP` | TODO|
+| P3.4 | `LOCAL_SETUP` | high during Timer A ISR |
+| P2.6 | `LOCAL_SETUP` | toggle at beginning of calibration |
+| P3.5 | `LOCAL_SETUP` | toggle when mote decides to retransmit (after ACK) |
