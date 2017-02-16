@@ -31,3 +31,15 @@
 | `CCR1`    | capture on radio SFD pin          | rising or falling edge of SFD pin                    | first read the length, FCF and DSN field of the frame, if this is ACK and the DSN is newer than me, re-transmit data packet | only call on end of received frame |
 | `CCR2`    | execute data transmission         | subticks (around 213.5us) after end of receiving ACK | send TXON strobe for sending data | |
 | `overflow`| do nothing                        | every 65536 ticks                                    | none              | |
+
+
+## Related Pins ##
+
+|pin name | when high                           | when low							| when toggle |
+|---------|-------------------------------------|-----------------------------------|-------------|
+| P2.3    | light is on                         |  light is off                     ||
+| P6.6    | interrupt routine of timer B starts |  interrupt routine of timer B end ||
+| P6.7    | start of sending TXON strobe        |  TXON strobe senddone             ||
+| P3.4    | interrupt routine of timer A starts |  interrupt routine of timer A end ||
+| P2.6    |                                     |                                   | `CCR1` interrupt of timer A trigger |
+| P3.5    |                                     |                                   | I need re-transmit later            |
