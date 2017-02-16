@@ -19,6 +19,21 @@
   <project>
     <path>$WS_DIR$\ft_sync\ft_sync.ewp</path>
   </project>
+  <project>
+    <path>$WS_DIR$\ref_radiooff_lpm0\ref_radiooff_lpm0.ewp</path>
+  </project>
+  <project>
+    <path>$WS_DIR$\ref_radiooff_lpm3\ref_radiooff_lpm3.ewp</path>
+  </project>
+  <project>
+    <path>$WS_DIR$\ref_radiooff_lpm4\ref_radiooff_lpm4.ewp</path>
+  </project>
+  <project>
+    <path>$WS_DIR$\ref_radioosc\ref_radioosc.ewp</path>
+  </project>
+  <project>
+    <path>$WS_DIR$\ref_radiorx\ref_radiorx.ewp</path>
+  </project>
   <batchBuild/>
 </workspace>
 
