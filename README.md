@@ -92,8 +92,9 @@ local setup
 
 ----------------------------------------------------------------------------
 
+  my_addr=0x11                                          my_addr=0x11
           sensing                                     sink
- my_addr=0x11  \                                      /       my_addr=0x11
+               \                                      /
          DATA   \         ACK            DATA        /    ACK
        dest=0x11 \      dest=null      dest=0x11    /   dest=null
         seq=1     \      seq=1          seq=1      /     seq=1
@@ -106,13 +107,13 @@ testbed setup
 
 ## reference power consumption
 
-| Project             | explanation         | raw results                                                                                                        | average current | Total energy 1min run |
-| ------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------- | ---------------------:|
-| `ref_radiorx`       | radio on rx         | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256830000&to=1487256900000) |         23-24mA | 146.27 J              |
-| `ref_radioosc`      | radio oscillator on | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256945000&to=1487257020000) |         23-24mA | 146.25 J              |
-| `ref_radiooff_lpm0` | radio off, LPM0     | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256340000&to=1487256410000) |          1.90mA |  17.32 J              |
-| `ref_radiooff_lpm3` | radio off, LPM3     | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256510000&to=1487256590000) |          1.80mA |  16.16 J              |
-| `ref_radiooff_lpm4` | radio off, LPM4     | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256650000&to=1487256730000) |          1.75mA |  16.29 J              |
+| Project             | explanation         | raw results                                                                                                        | average current | energy 1min run | energy 5min run |
+| ------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------- | ---------------:|----------------:|
+| `ref_radiorx`       | radio on rx         | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256830000&to=1487256900000) |        23-24 mA | 146.27 J        | 731.35 J        |
+| `ref_radioosc`      | radio oscillator on | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256945000&to=1487257020000) |        23-24 mA | 146.25 J        | 731.25 J        |
+| `ref_radiooff_lpm0` | radio off, LPM0     | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256340000&to=1487256410000) |         1.90 mA |  17.32 J        |  86.60 J        |
+| `ref_radiooff_lpm3` | radio off, LPM3     | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256510000&to=1487256590000) |         1.80 mA |  16.16 J        |  80.80 J        |
+| `ref_radiooff_lpm4` | radio off, LPM4     | [link](http://wsn-testbed.it.uu.se:3000/dashboard/db/overview-of-the-20-nodes?from=1487256650000&to=1487256730000) |         1.75 mA |  16.29 J        |  81.45 J        |
 
 ## Timer A
 
