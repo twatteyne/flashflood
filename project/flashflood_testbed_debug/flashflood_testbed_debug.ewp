@@ -327,8 +327,6 @@
         <option>
           <name>newCCIncludePaths</name>
           <state>$PROJ_DIR$\..\..\drivers</state>
-          <state>$PROJ_DIR$\</state>
-          <state>$PROJ_DIR$\..\..\inc</state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
