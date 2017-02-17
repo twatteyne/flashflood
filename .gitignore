@@ -1,7 +1,9 @@
 /project/flashflood_local/Debug/
 /project/flashflood_local/settings/
-/project/flashflood/Debug/
-/project/flashflood/settings/
+/project/flashflood_testbed_debug/Debug/
+/project/flashflood_testbed_debug/settings/
+/project/flashflood_testbed_production/Debug/
+/project/flashflood_testbed_production/settings/
 /project/ref_radiooff_lpm0/Debug/
 /project/ref_radiooff_lpm0/settings/
 /project/ref_radiooff_lpm3/Debug/
