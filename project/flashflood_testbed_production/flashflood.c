@@ -294,7 +294,7 @@ int main(void) {
     // DSN to be written before TX
     for (i=3;i<7;i++){
 #ifdef LOCAL_SETUP
-        app_vars.dataFrameTx[i]   = app_vars.my_addr+0x11;
+        app_vars.dataFrameTx[i]   = app_vars.my_addr+1;
 #else 
         app_vars.dataFrameTx[i]   = 0x11;
 #endif
@@ -470,25 +470,19 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     rx_hop         = ((rxpkt_dsn&0x70)>>4);
     rx_seq         = ((rxpkt_dsn&0x0f)>>0);
     
-    // wiggle light pin
-#ifdef LIGHTPIN_ALLMOTES
-    if (app_vars.myId!=ADDR_SENSING_NODE) {
-#else
-    if (app_vars.myId==ADDR_SINK_NODE) {
-#endif
-        if (rx_light==1){
-            P2OUT |=  0x08; // [P2.3] light pin
-        } else {
-            P2OUT &= ~0x08; // [P2.3] light pin
-        }
-    }
-    
     if (app_vars.myId==ADDR_SINK_NODE){
         // I'm the sink node
         if (
             (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) ||
             (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1)
         ) {
+            // wiggle light pin
+            if (rx_light==1){
+                P2OUT |=  0x08; // [P2.3] light pin
+            } else {
+                P2OUT &= ~0x08; // [P2.3] light pin
+            }
+          
             if (
                 (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
                 (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
@@ -503,6 +497,17 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         
         if (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1) {
             // I received a valid ACK frame
+          
+#ifdef LIGHTPIN_ALLMOTES
+             // wiggle light pin
+            if (app_vars.myId!=ADDR_SENSING_NODE) {
+                if (rx_light==1){
+                    P2OUT |=  0x08; // [P2.3] light pin
+                } else {
+                    P2OUT &= ~0x08; // [P2.3] light pin
+                }
+            }
+#endif
 
 #ifdef UART_HOP
             // print
