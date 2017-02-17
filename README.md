@@ -102,8 +102,8 @@ local setup
            DATA     1A------------2A------------3A        ACK
           dest=2   /      ACK           DATA      \     dest=null
            seq=1  /     dest=null     dest=4       \     seq=1
-           hop=0 /       seq=1         seq=1        \    hop=2 
- my_addr=1      /        hop=0         hop=2         \        my_addr=5
+           hop=2 /       seq=1         seq=1        \    hop=4 
+ my_addr=1      /        hop=2         hop=4         \        my_addr=5
   my_hop=0     /                                      \        my_hop=4  
           sensing                                     sink
 
