@@ -5,10 +5,10 @@
     <path>$WS_DIR$\flashflood_local\flashflood_local.ewp</path>
   </project>
   <project>
-    <path>$WS_DIR$\flashflood_testbed\flashflood_testbed_debug.ewp</path>
+    <path>$WS_DIR$\flashflood_testbed_debug\flashflood_testbed_debug.ewp</path>
   </project>
   <project>
-    <path>$WS_DIR$\flashflood_testbed\flashflood_testbed_production.ewp</path>
+    <path>$WS_DIR$\flashflood_testbed_production\flashflood_testbed_production.ewp</path>
   </project>
   <project>
     <path>$WS_DIR$\ref_radiooff_lpm0\ref_radiooff_lpm0.ewp</path>
