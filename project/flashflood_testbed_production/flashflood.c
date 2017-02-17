@@ -51,10 +51,15 @@
 
 #define CHANNEL                   26
 
-//debugpin
+// LEDs
+#define LED_LIGHT_INIT            P5DIR |=  0x40; // P5.6
+#define LED_LIGHT_ON              P5OUT |=  0x40;
+#define LED_LIGHT_OFF             P5OUT |=  0x40;
+
+//debugpins
 #define DEBUGPIN_LIGHT_INIT       P2DIR |=  0x08; // P2.3
-#define DEBUGPIN_LIGHT_LOW        P2OUT &= ~0x08;
 #define DEBUGPIN_LIGHT_HIGH       P2OUT |=  0x08;
+#define DEBUGPIN_LIGHT_LOW        P2OUT &= ~0x08;
 
 //=========================== statics =========================================
 
@@ -150,8 +155,8 @@ int main(void) {
     
 #ifdef ENABLE_LEDS
     // LEDs
-    P5DIR     |=  0x70;                          // P5DIR = 0bx111xxxx for LEDs
-    P5OUT     |=  0x70;                          // P5OUT = 0bx111xxxx, all LEDs off
+    LED_LIGHT_INIT;
+    LED_LIGHT_OFF;
 #endif
     
 #ifdef ENABLE_DEBUGPINS
@@ -350,6 +355,9 @@ void timera_ccr2_compare_cb(void) {
 #ifdef LIGHTPIN_ALLMOTES
             DEBUGPIN_LIGHT_HIGH;
 #endif
+#ifdef ENABLE_LEDS
+            LED_LIGHT_ON;
+#endif
         } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LIGHT_THRESHOLD - LIGHT_HYSTERESIS))) {
             // light was just turned off
             
@@ -358,6 +366,9 @@ void timera_ccr2_compare_cb(void) {
 #ifdef LIGHTPIN_ALLMOTES
             DEBUGPIN_LIGHT_LOW;
 #endif
+#ifdef ENABLE_LEDS
+            LED_LIGHT_OFF;
+#endif
         } else {
             // light stays in same state
             
@@ -365,9 +376,6 @@ void timera_ccr2_compare_cb(void) {
         }
         
         if (iShouldSend){
-#ifdef ENABLE_LEDS
-            P5OUT      ^=  0x10; // toggle red leds
-#endif
             app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
             
             // write DSN to TXFIFO RAM 
@@ -472,8 +480,14 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             // wiggle light pin
             if (rx_light==1){
                 DEBUGPIN_LIGHT_HIGH;
+#ifdef ENABLE_LEDS
+                LED_LIGHT_ON;
+#endif
             } else {
                 DEBUGPIN_LIGHT_LOW;
+#ifdef ENABLE_LEDS
+                LED_LIGHT_OFF;
+#endif
             }
           
             if (
@@ -491,16 +505,25 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         if (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1) {
             // I received a valid ACK frame
           
-#ifdef LIGHTPIN_ALLMOTES
-             // wiggle light pin
+            // wiggle light pin
             if (app_vars.myId!=ADDR_SENSING_NODE) {
                 if (rx_light==1){
+#ifdef LIGHTPIN_ALLMOTES
                     DEBUGPIN_LIGHT_HIGH;
+#endif
+#ifdef ENABLE_LEDS
+                    LED_LIGHT_ON;
+#endif
                 } else {
+#ifdef LIGHTPIN_ALLMOTES
                     DEBUGPIN_LIGHT_LOW;
+#endif
+#ifdef ENABLE_LEDS
+                    LED_LIGHT_OFF;
+#endif
                 }
             }
-#endif
+
 
 #ifdef UART_HOP
             // print
