@@ -76,6 +76,34 @@ testbed
 * `seq`: increments at each new light switch
 * `hop`: sensing node is hop 0
 
+## diagram
+
+```
+local setup
+                my_addr=2     my_addr=3     my_addr=4
+                 my_hop=1      my_hop=2      my_hop=3
+           DATA     1A------------2A------------3A        ACK
+          dest=2   /      ACK           DATA      \     dest=null
+           seq=1  /     dest=null     dest=4       \     seq=1
+           hop=0 /       seq=1         seq=1        \    hop=2 
+ my_addr=1      /        hop=0         hop=2         \        my_addr=5
+  my_hop=0     /                                      \        my_hop=4  
+          sensing                                     sink
+
+----------------------------------------------------------------------------
+
+          sensing                                     sink
+ my_addr=0x11  \                                      /       my_addr=0x11
+         DATA   \         ACK            DATA        /    ACK
+       dest=0x11 \      dest=null      dest=0x11    /   dest=null
+        seq=1     \      seq=1          seq=1      /     seq=1
+        hop=0      \     hop=0          hop=2     /      hop=2
+                    1B------------2B------------3B
+                my_addr=0x11  my_addr=0x11  my_addr=0x11
+
+testbed setup
+```
+
 ## reference power consumption
 
 | Project             | explanation         | raw results                                                                                                        | average current | Total energy 1min run |
@@ -89,7 +117,7 @@ testbed
 ## Timer A
 
 * 32 kHz (ACLK), continuous mode
-* never stopped, rolls over ever 2s
+* never stops, rolls over every ~2s
 
 | interrupt      | description |
 |----------------|-------------|
@@ -100,7 +128,7 @@ testbed
 ## Timer B
 
 * 5 MHz (SMCLK), continuous mode
-* never stopped (TODO: needs fixing)
+* never stops (TODO: needs fixing)
 
 | interrupt        | description |
 |------------------|-------------|
