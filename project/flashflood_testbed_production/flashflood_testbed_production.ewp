@@ -325,7 +325,7 @@
         </option>
         <option>
           <name>newCCIncludePaths</name>
-          <state></state>
+          <state>$PROJ_DIR$\..\..\drivers</state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -668,7 +668,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state>ref_radiooff_lpm3.d43</state>
+          <state>flashflood_testbed_production.d43</state>
         </option>
         <option>
           <name>OutputFormat</name>
@@ -862,7 +862,7 @@
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>ref_radiooff_lpm3.ihex</state>
+          <state>flashflood_testbed_production.ihex</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
@@ -979,7 +979,11 @@
         <debug>1</debug>
         <option>
           <name>CUTest</name>
-          <state>###Uninitialized###</state>
+          <state>-I$TOOLKIT_DIR$\inc</state>
+          <state>-@$TOOLKIT_DIR$\bin\iar.cmd</state>
+          <state>-@$PROJ_DIR$\source.txt</state>
+          <state>-@$PROJ_DIR$\include.txt</state>
+          <state>--preinclude=$PROJ_DIR$\IAR_ULPAdvisor_Defs.h</state>
         </option>
         <option>
           <name>ULPRules</name>
@@ -992,7 +996,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state></state>
+          <state>$PROJ_FNAME$.ulp</state>
         </option>
         <option>
           <name>ULPStatus</name>
@@ -1006,8 +1010,53 @@
       <data/>
     </settings>
   </configuration>
+  <group>
+    <name>drivers</name>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\adc_sensor.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\adc_sensor.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\cc2420.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\cc2420.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\eui64.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\eui64.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\radio.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\radio.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\spi.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\spi.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\timer_a.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\timer_a.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\timer_b.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\drivers\timer_b.h</name>
+    </file>
+  </group>
   <file>
-    <name>$PROJ_DIR$\ref_radiooff_lpm3.c</name>
+    <name>$PROJ_DIR$\flashflood.c</name>
   </file>
 </project>
 

@@ -5,7 +5,10 @@
     <path>$WS_DIR$\flashflood_local\flashflood_local.ewp</path>
   </project>
   <project>
-    <path>$WS_DIR$\flashflood\flashflood.ewp</path>
+    <path>$WS_DIR$\flashflood_testbed_debug\flashflood_testbed_debug.ewp</path>
+  </project>
+  <project>
+    <path>$WS_DIR$\flashflood_testbed_production\flashflood_testbed_production.ewp</path>
   </project>
   <project>
     <path>$WS_DIR$\ref_radiooff_lpm0\ref_radiooff_lpm0.ewp</path>
@@ -31,10 +34,6 @@
   <batchBuild>
     <batchDefinition>
       <name>all debug</name>
-      <member>
-        <project>flashflood</project>
-        <configuration>Debug</configuration>
-      </member>
       <member>
         <project>flashflood_local</project>
         <configuration>Debug</configuration>
@@ -65,6 +64,14 @@
       </member>
       <member>
         <project>test_lightuart</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>flashflood_testbed_debug</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>flashflood_testbed_production</project>
         <configuration>Debug</configuration>
       </member>
     </batchDefinition>

@@ -6,8 +6,9 @@
 ours
 
 | run  | duration | energy         | reliability   | median latency |
-|------|----------|----------------|---------------|----------------|
-|  558 |     300  | 720.823209152  |         34/70 | 5888.5         |
+|------|----------|----------------|---------------|---------------:|
+|  605 |     300  | 722.801148071  |         19/70 |  6366.0        |
+|  558 |     300  | 720.823209152  |         34/70 |  5888.5        |
 
 competition
 
@@ -55,15 +56,26 @@ testbed
 ## `#define`
 
 * `LOCAL_SETUP`
-    * enable debug pins on all motes
-    * change forwarding rule to force multi-hop
     * different short addresses for different motes
+    * change forwarding rule to force multi-hop
 * `LIGHTPIN_ALLMOTES`
     * toggle `P2.3` on all motes, not just sink mote
 * `UART_HOP`
     * when retransmitting a DATA packet, the mote prints the hop count it will send (i.e. it's own)
+* `ENABLE_LEDS`
+    * blink LEDs on all motes
+* `ENABLE_DEBUGPINS`
+    * toggle debugpins on all motes    
 
-## DSN contents
+| `flashflood_local`  | `flashflood_testbed_debug` | `flashflood_testbed_release` |
+|---------------------|----------------------------|------------------------------|
+| `LOCAL_SETUP`       |                            |                              |
+| `LIGHTPIN_ALLMOTES` | `LIGHTPIN_ALLMOTES`        |                              |
+| `UART_HOP`          | `UART_HOP`                 |                              |
+| `ENABLE_LEDS`       |                            |                              |
+| `ENABLE_DEBUGPINS`  |                            |                              |
+
+## DSN contents and use
 
 ```
   7 6 5 4 3 2 1 0
@@ -75,8 +87,6 @@ testbed
 * `L`: state light (0=off, 1=high)
 * `seq`: increments at each new light switch
 * `hop`: sensing node is hop 0
-
-## diagram
 
 ```
 local setup
@@ -103,6 +113,26 @@ local setup
                 my_addr=0x11  my_addr=0x11  my_addr=0x11
 
 testbed setup
+```
+
+## packet format
+
+DATA
+
+```
+    0     1     2     3     4     5     6     7     8
+ +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ |    FCF    | DSN |   PANID   |   dest    |    CRC    |
+ +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+```
+
+ACK
+
+```
+    0     1     2     3     4
+ +-----+-----+-----+-----+-----+
+ |    FCF    | DSN |    CRC    |
+ +-----+-----+-----+-----+-----+
 ```
 
 ## reference power consumption

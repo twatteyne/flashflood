@@ -62,7 +62,7 @@
 //=========================== variables =======================================
 
 typedef struct {
-    uint8_t             packetTx[FRAME_DATA_LEN];
+    uint8_t             dataFrameTx[FRAME_DATA_LEN];
     
     uint8_t             myId;
     uint8_t             current_seq;
@@ -198,12 +198,12 @@ int main(void) {
     timer_a_setCompareCCR1andReturnTBRcb(timera_ccr1_compare_get_tbr_cb);
     timer_a_setCompareCCR2Cb(timera_ccr2_compare_cb);
     // arm CCR1 (calibration)
-    TACCR1  =  TAR+CALIBRATION_PERIOD_TICKS;
-    TACCTL1 =  CCIE;
+    TACCR1         =  TAR+CALIBRATION_PERIOD_TICKS;
+    TACCTL1        =  CCIE;
     // arm CCR2 (light sensor sampling)
     if (app_vars.myId==ADDR_SENSING_NODE){
-        TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
-        TACCTL2  =  CCIE;
+        TACCR2     =  TAR+LIGHT_SAMPLE_PERIOD;
+        TACCTL2    =  CCIE;
     }
     
     // Timer B
@@ -289,16 +289,17 @@ int main(void) {
     
     //==== create and load data frame (ACK generated automatically)
     
-    app_vars.packetTx[0] = FRAME_DATA_FCF0;
-    app_vars.packetTx[1] = FRAME_DATA_FCF1;
-    for (i=0;i<4;i++){
+    app_vars.dataFrameTx[0]       = FRAME_DATA_FCF0; // FCF0
+    app_vars.dataFrameTx[1]       = FRAME_DATA_FCF1; // FCF1
+    // DSN to be written before TX
+    for (i=3;i<7;i++){
 #ifdef LOCAL_SETUP
-        app_vars.packetTx[i+3] = app_vars.my_addr+0x11;
+        app_vars.dataFrameTx[i]   = app_vars.my_addr+0x11;
 #else 
-        app_vars.packetTx[i+3] = 0x11;
+        app_vars.dataFrameTx[i]   = 0x11;
 #endif
     }
-    radio_loadPacket(app_vars.packetTx,FRAME_DATA_LEN);
+    radio_loadPacket(app_vars.dataFrameTx,FRAME_DATA_LEN);
     
     //==== switch radio in RX mode
     radio_setFrequency(CHANNEL);
@@ -353,13 +354,17 @@ void timera_ccr2_compare_cb(void) {
             
             app_vars.light_state  = 1;
             iShouldSend           = 1;
+#ifdef LIGHTPIN_ALLMOTES
             P2OUT                |= 0x08;   // [P2.3] light pin
+#endif
         } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LIGHT_THRESHOLD - LIGHT_HYSTERESIS))) {
             // light was just turned off
             
             app_vars.light_state  = 0;
             iShouldSend           = 1;
+#ifdef LIGHTPIN_ALLMOTES
             P2OUT                &= ~0x08;  // [P2.3] light pin
+#endif
         } else {
             // light stays in same state
             
