@@ -110,11 +110,11 @@ testbed
 
 ## pins
 
-| pin  | description |
-|------|-------------|
-| P2.3 | output pin on the sink node (possibly on all nodes) |
-| P3.4 | high during Timer A ISR |
-| P6.6 | high during Timer B ISR |
-| P2.6 | toggle at beginning of calibration |
-| P3.5 | toggle when mote decides to retransmit (after ACK) |
-| P6.7 | TODO |
+| pin  | role      | description |
+|------|-----------|-------------|
+| P2.3 | light pin | output pin on the sink node (possibly on all nodes) |
+| P3.4 |  debugpin | high during Timer A ISR |
+| P6.6 |  debugpin | high during Timer B ISR |
+| P2.6 |  debugpin | toggle at beginning of calibration |
+| P3.5 |  debugpin | toggle when mote decides to retransmit (after ACK) |
+| P6.7 |  debugpin | TODO |

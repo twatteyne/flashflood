@@ -105,13 +105,13 @@ int main(void) {
     WDTCTL     =  WDTPW + WDTHOLD;
     
     // setup clock speed
-    DCOCTL    |=  DCO0 | DCO1 | DCO2;             // MCLK at ~8MHz
-    BCSCTL1   |=  RSEL0 | RSEL1 | RSEL2;          // MCLK at ~8MHz
-                                                  // by default, ACLK from 32kHz XTAL which is running
+    DCOCTL    |=  DCO0 | DCO1 | DCO2;            // MCLK at ~8MHz
+    BCSCTL1   |=  RSEL0 | RSEL1 | RSEL2;         // MCLK at ~8MHz
+                                                 // by default, ACLK from 32kHz XTAL which is running
 #ifdef ENABLE_LEDS
     // LEDs
-    P5DIR     |=  0x70;                           // P5DIR = 0bx111xxxx for LEDs
-    P5OUT     |=  0x70;                           // P5OUT = 0bx111xxxx, all LEDs off
+    P5DIR     |=  0x70;                          // P5DIR = 0bx111xxxx for LEDs
+    P5OUT     |=  0x70;                          // P5OUT = 0bx111xxxx, all LEDs off
 #endif
     
 #ifdef ENABLE_DEBUGPINS
@@ -121,6 +121,19 @@ int main(void) {
     P2DIR |=  0x40;      // [P2.6]
     P3DIR |=  0x20;      // [P3.5]
     P6DIR |=  0x80;      // [P6.7]
+#endif
+    
+#ifdef UART_HOP
+    // setup UART (115200 baud)
+    P3SEL     =  0xC0;                           // P3.6,7 = UART1TX/RX
+    ME2      |=  UTXE1 + URXE1;                  // enable UART1 TX/RX
+    UCTL1    |=  CHAR;                           // 8-bit character
+    UTCTL1   |=  SSEL1;                          // clocking from SMCLK
+    UBR01     =  41;                             // 4.8MHz/115200 - 41.66
+    UBR11     =  0x00;                           //
+    UMCTL1    =  0x4A;                           // modulation
+    UCTL1    &= ~SWRST;                          // clear UART1 reset bit
+    IE2      |=  UTXIE1;                         // enable UART1 TX interrupt
 #endif
     
     // light pin
@@ -491,6 +504,12 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         
         if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
             // I received a valid DATA frame
+
+#ifdef UART_HOP
+            // print
+            U1TXBUF = 'D';
+#endif
+            
 #ifdef LOCAL_SETUP
             // no need on local setup
 #else   
@@ -514,6 +533,11 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         
         if (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1) {
             // I received a valid ACK frame
+
+#ifdef UART_HOP
+            // print
+            U1TXBUF = 'A';
+#endif
             
 #ifdef LOCAL_SETUP
             if (app_vars.myHop==0 || app_vars.myHop==1){
@@ -606,4 +630,12 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             } while(reg_FSCTRL_byte0 & 0x10);
         }
     }
+}
+
+#pragma vector = USART1TX_VECTOR
+__interrupt void USART1TX_ISR (void) {
+}
+
+#pragma vector = USART1RX_VECTOR
+__interrupt void USART1RX_ISR (void) {
 }
