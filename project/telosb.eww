@@ -35,10 +35,6 @@
     <batchDefinition>
       <name>all debug</name>
       <member>
-        <project>flashflood</project>
-        <configuration>Debug</configuration>
-      </member>
-      <member>
         <project>flashflood_local</project>
         <configuration>Debug</configuration>
       </member>
@@ -68,6 +64,14 @@
       </member>
       <member>
         <project>test_lightuart</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>flashflood_testbed_debug</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>flashflood_testbed_production</project>
         <configuration>Debug</configuration>
       </member>
     </batchDefinition>
