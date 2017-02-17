@@ -55,13 +55,24 @@ testbed
 ## `#define`
 
 * `LOCAL_SETUP`
-    * enable debug pins on all motes
-    * change forwarding rule to force multi-hop
     * different short addresses for different motes
+    * change forwarding rule to force multi-hop
 * `LIGHTPIN_ALLMOTES`
     * toggle `P2.3` on all motes, not just sink mote
 * `UART_HOP`
     * when retransmitting a DATA packet, the mote prints the hop count it will send (i.e. it's own)
+* `ENABLE_LEDS`
+    * blink LEDs on all motes
+* `ENABLE_DEBUGPINS`
+    * toggle debugpins on all motes    
+
+| `flashflood_local`  | `flashflood_testbed_debug` | `flashflood_testbed_release` |
+|---------------------|----------------------------|------------------------------|
+| `LOCAL_SETUP`       |                            |                              |
+| `LIGHTPIN_ALLMOTES` | `LIGHTPIN_ALLMOTES`        |                              |
+| `UART_HOP`          | `UART_HOP`                 |                              |
+| `ENABLE_LEDS`       |                            |                              |
+| `ENABLE_DEBUGPINS`  |                            |                              |
 
 ## DSN contents
 
