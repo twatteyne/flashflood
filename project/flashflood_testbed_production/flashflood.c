@@ -51,6 +51,11 @@
 
 #define CHANNEL                   26
 
+//debugpin
+#define DEBUGPIN_LIGHT_INIT       P2DIR |=  0x08; // P2.3
+#define DEBUGPIN_LIGHT_LOW        P2OUT &= ~0x08;
+#define DEBUGPIN_LIGHT_HIGH       P2OUT |=  0x08;
+
 //=========================== statics =========================================
 
 //=========================== variables =======================================
@@ -177,8 +182,8 @@ int main(void) {
 #else
     if (app_vars.myId==ADDR_SINK_NODE) {
 #endif
-        P2DIR |=  0x08;                          // [P2.3] light pin
-        P2OUT &= ~0x08;                          // [P2.3] turn off by default
+        DEBUGPIN_LIGHT_INIT;
+        DEBUGPIN_LIGHT_LOW;
     }
     
     // Timer A
@@ -343,7 +348,7 @@ void timera_ccr2_compare_cb(void) {
             app_vars.light_state  = 1;
             iShouldSend           = 1;
 #ifdef LIGHTPIN_ALLMOTES
-            P2OUT                |= 0x08;   // [P2.3] light pin
+            DEBUGPIN_LIGHT_HIGH;
 #endif
         } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LIGHT_THRESHOLD - LIGHT_HYSTERESIS))) {
             // light was just turned off
@@ -351,7 +356,7 @@ void timera_ccr2_compare_cb(void) {
             app_vars.light_state  = 0;
             iShouldSend           = 1;
 #ifdef LIGHTPIN_ALLMOTES
-            P2OUT                &= ~0x08;  // [P2.3] light pin
+            DEBUGPIN_LIGHT_LOW;
 #endif
         } else {
             // light stays in same state
@@ -466,9 +471,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
         ) {
             // wiggle light pin
             if (rx_light==1){
-                P2OUT |=  0x08; // [P2.3] light pin
+                DEBUGPIN_LIGHT_HIGH;
             } else {
-                P2OUT &= ~0x08; // [P2.3] light pin
+                DEBUGPIN_LIGHT_LOW;
             }
           
             if (
@@ -490,9 +495,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
              // wiggle light pin
             if (app_vars.myId!=ADDR_SENSING_NODE) {
                 if (rx_light==1){
-                    P2OUT |=  0x08; // [P2.3] light pin
+                    DEBUGPIN_LIGHT_HIGH;
                 } else {
-                    P2OUT &= ~0x08; // [P2.3] light pin
+                    DEBUGPIN_LIGHT_LOW;
                 }
             }
 #endif
