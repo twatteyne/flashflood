@@ -35,22 +35,19 @@
     #define ADDR_SINK_NODE        0xab
 #endif
 
-// sensing
+// light sensor
+#define LIGHT_SAMPLE_PERIOD       100   // @32kHz, 100=3ms
+#define LIGHT_THRESHOLD           400
+#define LIGHT_HYSTERESIS          100
 
-#define LIGHT_SAMPLE_PERIOD       100 // @32kHz, 100=3ms
-#define LUX_THRESHOLD             400
-#define LUX_HYSTERESIS            100
-
-// sink pin toggle p2.3 when receiving data
-
-#define SUBTICK_SCHEDULE          224   // RETRANSMIT_DELAY<<5
-#define RETRANSMIT_DELAY          7     // 7@32768Hz = 210us
+#define RETRANSMIT_DELAY_TICKS    7        // 7@32768Hz = 210us, between end of ACK and start of DATA
+#define CALIBRATION_PERIOD_TICKS  224// (RETRANSMIT_DELAY_TICKS<<5)   // RETRANSMIT_DELAY<<5
 
 // txfifo dsn address (0x003)
 #define WRITE_TXFIFO_DSN_BYTE0    0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
 #define WRITE_TXFIFO_DSN_BYTE1    0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
 
-//==== frame content
+// frame content
 #define FRAME_DATA_LEN            (2+1+2+2+2) // 2B FCF, 1B DSN, 2B dest panId, 2B dest address, 2B CRC
 #define FRAME_DATA_FCF0           0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
 #define FRAME_DATA_FCF1           0x18 // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
@@ -297,7 +294,7 @@ int main(void) {
     }
     
     // start subticks calculating timer
-    TACCR1  =  TAR+SUBTICK_SCHEDULE;
+    TACCR1  =  TAR+CALIBRATION_PERIOD_TICKS;
     TACCTL1 =  CCIE;
     
     while (1);
@@ -322,8 +319,8 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
         
         // at 3V, the typical Frequency ranges from 4.4MHz to 5.4MHz,
         // so the theoretical value of subticks ranges from (134~165)
-        if (app_vars.subticks<134*RETRANSMIT_DELAY || app_vars.subticks>165*RETRANSMIT_DELAY){
-            app_vars.subticks = 149*RETRANSMIT_DELAY;
+        if (app_vars.subticks<134*RETRANSMIT_DELAY || app_vars.subticks>165*RETRANSMIT_DELAY_TICKS){
+            app_vars.subticks = 149*RETRANSMIT_DELAY_TICKS;
         }
     }
     
@@ -331,7 +328,7 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
     app_vars.lastTimestamp = timestamp;
     
     // for calculating subticks, cancel it later if this is not overflow
-    TACCR1  =  TACCR1+SUBTICK_SCHEDULE;
+    TACCR1  =  TACCR1+CALIBRATION_PERIOD_TICKS;
     TACCTL1 =  CCIE;
 }
 
@@ -344,13 +341,13 @@ void timera_ccr2_compare_cb(void) {
         app_vars.light_reading = adc_read_light();
         
         // detect light state switches
-        if (       app_vars.light_state==0 && (app_vars.light_reading >= (LUX_THRESHOLD + LUX_HYSTERESIS))) {
+        if (       app_vars.light_state==0 && (app_vars.light_reading >= (LIGHT_THRESHOLD + LIGHT_HYSTERESIS))) {
             // light was just turned on
             
             app_vars.light_state  = 1;
             iShouldSend           = 1;
             P2OUT                |= 0x08;   // [P2.3] light pin
-        } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LUX_THRESHOLD - LUX_HYSTERESIS))) {
+        } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LIGHT_THRESHOLD - LIGHT_HYSTERESIS))) {
             // light was just turned off
             
             app_vars.light_state  = 0;
