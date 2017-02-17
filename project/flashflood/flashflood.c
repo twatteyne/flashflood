@@ -66,8 +66,8 @@ typedef struct {
     
     uint8_t             myId;
     uint8_t             current_seq;
-    uint8_t             myHop;
-    uint8_t             myRfId;
+    uint8_t             my_hop;
+    uint8_t             my_addr;
     uint16_t            retransmitDelaySubticks;
     uint16_t            lastTimestamp;
     
@@ -89,9 +89,6 @@ void timer_b_cb_endFrame(uint16_t timestamp);
 
 //=========================== main ============================================
 
-/**
-\brief The program starts executing here.
-*/
 int main(void) {
     uint8_t             i;
     uint8_t             eui64[8];
@@ -101,6 +98,8 @@ int main(void) {
     memset(&app_vars,0,sizeof(app_vars_t));
     memset(&eui64[0],0,8);
     
+    //===== fire up board
+    
     // disable watchdog timer
     WDTCTL     =  WDTPW + WDTHOLD;
     
@@ -108,6 +107,54 @@ int main(void) {
     DCOCTL    |=  DCO0 | DCO1 | DCO2;            // MCLK at ~8MHz
     BCSCTL1   |=  RSEL0 | RSEL1 | RSEL2;         // MCLK at ~8MHz
                                                  // by default, ACLK from 32kHz XTAL which is running
+    
+    //===== my identifiers
+    
+    // get my EUI64
+    eui64_get(&eui64[0]);
+    app_vars.myId = eui64[7];
+    
+#ifdef LOCAL_SETUP
+    switch(app_vars.myId){
+        case ADDR_SENSING_NODE:
+            app_vars.my_addr  = 1;
+            break;
+        case ADDR_HOP1_A_NODE:
+        case ADDR_HOP1_B_NODE:
+            app_vars.my_addr  = 2;
+            break;
+        case ADDR_HOP2_A_NODE:
+        case ADDR_HOP2_B_NODE:
+            app_vars.my_addr  = 3;
+            break;
+        case ADDR_HOP3_A_NODE:
+        case ADDR_HOP3_B_NODE:
+            app_vars.my_addr  = 4;
+            break;
+        case ADDR_HOP4_A_NODE:
+        case ADDR_HOP4_B_NODE:
+            app_vars.my_addr  = 5;
+            break;
+        case ADDR_SINK_NODE:
+            app_vars.my_addr  = 6;
+            break;
+        default:
+            break;
+    }
+    app_vars.my_hop   = app_vars.my_addr-1;
+#else
+    app_vars.my_addr  = 0x11;
+#endif
+    for (i=0;i<2;i++){
+        app_vars.cc2420_shortadr[i] = app_vars.my_addr;
+        app_vars.cc2420_panid[i]    = app_vars.my_addr;
+    }
+    for (i=0;i<8;i++){
+        app_vars.cc2420_ieeeadr[i]  = app_vars.my_addr;
+    }
+    
+    //===== initialize peripherals
+    
 #ifdef ENABLE_LEDS
     // LEDs
     P5DIR     |=  0x70;                          // P5DIR = 0bx111xxxx for LEDs
@@ -116,11 +163,11 @@ int main(void) {
     
 #ifdef ENABLE_DEBUGPINS
     // debugpins
-    P3DIR |=  0x10;      // [P3.4]
-    P6DIR |=  0x40;      // [P6.6]
-    P2DIR |=  0x40;      // [P2.6]
-    P3DIR |=  0x20;      // [P3.5]
-    P6DIR |=  0x80;      // [P6.7]
+    P3DIR    |=  0x10;                           // [P3.4]
+    P6DIR    |=  0x40;                           // [P6.6]
+    P2DIR    |=  0x40;                           // [P2.6]
+    P3DIR    |=  0x20;                           // [P3.5]
+    P6DIR    |=  0x80;                           // [P6.7]
 #endif
     
 #ifdef UART_HOP
@@ -135,15 +182,29 @@ int main(void) {
     UCTL1    &= ~SWRST;                          // clear UART1 reset bit
     IE2      |=  UTXIE1;                         // enable UART1 TX interrupt
 #endif
-    
+
     // light pin
-    P2DIR |=  0x08;      // [P2.3] light pin
-    P2OUT &= ~0x08;      // [P2.3] turn off by default
+#ifdef LIGHTPIN_ALLMOTES
+    if (1) {
+#else
+    if (app_vars.myId==ADDR_SINK_NODE) {
+#endif
+        P2DIR |=  0x08;                          // [P2.3] light pin
+        P2OUT &= ~0x08;                          // [P2.3] turn off by default
+    }
     
     // Timer A
     timer_a_init();
     timer_a_setCompareCCR1andReturnTBRcb(timera_ccr1_compare_get_tbr_cb);
     timer_a_setCompareCCR2Cb(timera_ccr2_compare_cb);
+    // arm CCR1 (calibration)
+    TACCR1  =  TAR+CALIBRATION_PERIOD_TICKS;
+    TACCTL1 =  CCIE;
+    // arm CCR2 (light sensor sampling)
+    if (app_vars.myId==ADDR_SENSING_NODE){
+        TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
+        TACCTL2  =  CCIE;
+    }
     
     // Timer B
     timer_b_init();
@@ -151,10 +212,6 @@ int main(void) {
     
     // ADC
     adc_init();
-        
-    // get my EUI64
-    eui64_get(&eui64[0]);
-    app_vars.myId = eui64[7];
     
     //==== switch radio on
     
@@ -222,93 +279,30 @@ int main(void) {
     // enable global interrupt
     __bis_SR_register(GIE);
     
-    //==== configure radio
-    
     // per datasheet Section 13.5, "the crystal oscillator must be running when accessing the RAM."
     radio_oscillatorOn();
     
-#ifdef LOCAL_SETUP 
-    switch(app_vars.myId){
-        case ADDR_SENSING_NODE:
-            app_vars.myHop   = 0;
-            app_vars.myRfId  = 0x11;
-            break;
-        case ADDR_HOP1_A_NODE:
-        case ADDR_HOP1_B_NODE:
-            app_vars.myHop   = 1;
-            app_vars.myRfId  = 0x22;
-            break;
-        case ADDR_HOP2_A_NODE:
-        case ADDR_HOP2_B_NODE:
-            app_vars.myHop   = 2;
-            app_vars.myRfId  = 0x33;
-            break;
-        case ADDR_HOP3_A_NODE:
-        case ADDR_HOP3_B_NODE:
-            app_vars.myHop   = 3;
-            app_vars.myRfId  = 0x44;
-            break;
-        case ADDR_HOP4_A_NODE:
-        case ADDR_HOP4_B_NODE:
-            app_vars.myHop   = 4;
-            app_vars.myRfId  = 0x55;
-            break;
-        case ADDR_SINK_NODE:
-            app_vars.myHop   = 5;
-            app_vars.myRfId  = 0x66;
-            break;
-        default:
-            break;
-    }
-    for (i=0;i<2;i++){
-        app_vars.cc2420_shortadr[i] = app_vars.myRfId;
-        app_vars.cc2420_panid[i]    = app_vars.myRfId;
-    }
-    for (i=0;i<8;i++){
-        app_vars.cc2420_ieeeadr[i]  = app_vars.myRfId;
-    }
-#else
-    for (i=0;i<2;i++){
-        app_vars.cc2420_shortadr[i] = 0x11;
-        app_vars.cc2420_panid[i]    = 0x11;
-    }
-    for (i=0;i<8;i++){
-        app_vars.cc2420_ieeeadr[i]  = 0x11;
-    }
-#endif
-    // configure radio's short address
-    cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status,&app_vars.cc2420_shortadr[0], 2);
+    // configure radio's identifiers
+    cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status, &app_vars.cc2420_shortadr[0], 2);
+    cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,    &cc2420_status, &app_vars.cc2420_panid[0],    2);
+    cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,  &cc2420_status, &app_vars.cc2420_ieeeadr[0],  8);
     
-    // configure radio's PANID
-    cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,&cc2420_status,&app_vars.cc2420_panid[0],2);
-    
-    // configure radio's EUI64
-    cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,&cc2420_status,&app_vars.cc2420_ieeeadr[0],8);
-    
-    //==== create packet to transmit
+    //==== create and load data frame (ACK generated automatically)
     
     app_vars.packetTx[0] = FRAME_DATA_FCF0;
     app_vars.packetTx[1] = FRAME_DATA_FCF1;
     for (i=0;i<4;i++){
 #ifdef LOCAL_SETUP
-        app_vars.packetTx[i+3] = app_vars.myRfId+0x11;
+        app_vars.packetTx[i+3] = app_vars.my_addr+0x11;
 #else 
         app_vars.packetTx[i+3] = 0x11;
 #endif
     }
-    
-    radio_setFrequency(CHANNEL);
     radio_loadPacket(app_vars.packetTx,FRAME_DATA_LEN);
+    
+    //==== switch radio in RX mode
+    radio_setFrequency(CHANNEL);
     radio_rxNow();
-    
-    if (app_vars.myId==ADDR_SENSING_NODE){
-        TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
-        TACCTL2  =  CCIE;
-    }
-    
-    // start subticks calculating timer
-    TACCR1  =  TAR+CALIBRATION_PERIOD_TICKS;
-    TACCTL1 =  CCIE;
     
     while (1);
 }
@@ -387,7 +381,7 @@ void timera_ccr2_compare_cb(void) {
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
 #ifdef LOCAL_SETUP
-            U0TXBUF     = (app_vars.light_state<<7) | ((app_vars.myHop+2)<<4) | app_vars.current_seq;
+            U0TXBUF     = (app_vars.light_state<<7) | ((app_vars.my_hop+2)<<4) | app_vars.current_seq;
 #else
             U0TXBUF     = (app_vars.light_state<<7) |                           app_vars.current_seq;
 #endif
@@ -513,19 +507,19 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #ifdef LOCAL_SETUP
             // no need on local setup
 #else   
-            // update myHop
-            if (app_vars.myHop==0){
+            // update my_hop
+            if (app_vars.my_hop==0){
                 if (app_vars.myId == ADDR_SENSING_NODE){
                     // sensing node never relays
                     return;
                 }
-                app_vars.myHop = 1+rx_hop;
+                app_vars.my_hop = 1+rx_hop;
             } else {
-                if (rx_hop>=app_vars.myHop){
+                if (rx_hop>=app_vars.my_hop){
                     // do not process if receive packet from node with higher hop than me
                     return;
                 } else {
-                    app_vars.myHop = 1+rx_hop;
+                    app_vars.my_hop = 1+rx_hop;
                 }
             }
 #endif
@@ -540,26 +534,26 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #endif
             
 #ifdef LOCAL_SETUP
-            if (app_vars.myHop==0 || app_vars.myHop==1){
+            if (app_vars.my_hop==0 || app_vars.my_hop==1){
                 return;
             } else {
-                if (app_vars.myHop!=rx_hop){
+                if (app_vars.my_hop!=rx_hop){
                     return;
                 }
             }
 #else
-            if (app_vars.myHop==0){
+            if (app_vars.my_hop==0){
                 if (app_vars.myId == ADDR_SENSING_NODE){
                     // sensing node never relays
                     return;
                 }
-                app_vars.myHop = 1+rx_hop;
+                app_vars.my_hop = 1+rx_hop;
             } else {
-                if (rx_hop>=app_vars.myHop){
+                if (rx_hop>=app_vars.my_hop){
                     // do not process if receive packet from node with higher hop than me
                     return;
                 } else {
-                    app_vars.myHop = 1+rx_hop;
+                    app_vars.my_hop = 1+rx_hop;
                 }
             }
 #endif
@@ -597,9 +591,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             IFG1       &= ~URXIFG0;
 
 #ifdef LOCAL_SETUP
-            U0TXBUF     = (rxpkt_dsn & 0x8f) | ((app_vars.myHop+2)<<4);
+            U0TXBUF     = (rxpkt_dsn & 0x8f) | ((app_vars.my_hop+2)<<4);
 #else
-            U0TXBUF     = (rxpkt_dsn & 0x8f) | (app_vars.myHop<<4);
+            U0TXBUF     = (rxpkt_dsn & 0x8f) | (app_vars.my_hop<<4);
 #endif
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
