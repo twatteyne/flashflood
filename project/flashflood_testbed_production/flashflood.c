@@ -53,7 +53,7 @@
 
 // LEDs
 #define LED_LIGHT_INIT            P5DIR |=  0x40; // P5.6
-#define LED_LIGHT_ON              P5OUT |=  0x40;
+#define LED_LIGHT_ON              P5OUT &= ~0x40;
 #define LED_LIGHT_OFF             P5OUT |=  0x40;
 
 //debugpins
