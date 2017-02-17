@@ -198,12 +198,12 @@ int main(void) {
     timer_a_setCompareCCR1andReturnTBRcb(timera_ccr1_compare_get_tbr_cb);
     timer_a_setCompareCCR2Cb(timera_ccr2_compare_cb);
     // arm CCR1 (calibration)
-    TACCR1  =  TAR+CALIBRATION_PERIOD_TICKS;
-    TACCTL1 =  CCIE;
+    TACCR1         =  TAR+CALIBRATION_PERIOD_TICKS;
+    TACCTL1        =  CCIE;
     // arm CCR2 (light sensor sampling)
     if (app_vars.myId==ADDR_SENSING_NODE){
-        TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
-        TACCTL2  =  CCIE;
+        TACCR2     =  TAR+LIGHT_SAMPLE_PERIOD;
+        TACCTL2    =  CCIE;
     }
     
     // Timer B
