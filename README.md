@@ -32,6 +32,12 @@ testbed
 | `14-15-92-00-13-b7-70-01` | `log_205.txt` |      |              |
 | `14-15-92-00-13-ca-e4-ab` | `log_219.txt` |      | sink node    |
 
+## light sensor calibration
+
+* light OFF: sensor value ~80
+* light ON: sensor value ~625
+* recommended threshold: 400
+
 ## `#define`
 
 * `LOCAL_SETUP`

@@ -2,14 +2,26 @@
 #include "stdint.h"
 #include "adc_sensor.h"
 
-void senduint16(uint16_t val);
-void sendchar(uint8_t c);
-uint8_t doneSending;
+//=========================== variables =======================================
+
+typedef struct {
+              uint8_t lightValue_string[5+2];
+              uint8_t uart_lastTxByteIndex;
+   volatile   uint8_t uartDone;
+   volatile   uint8_t uartSendNow;
+} app_vars_t;
+
+app_vars_t app_vars;
+
+//=========================== prototypes ======================================
+
+//=========================== main ============================================
 
 /**
 \brief The program test the energy consumption under LPM4.
 */
 int main(void) {
+    volatile uint16_t delay;
     uint16_t lightValue;
     
     // disable watchdog timer
@@ -32,34 +44,40 @@ int main(void) {
     
     __bis_SR_register(GIE);                      // enable interrupts
     
+    for (delay=0xffff;delay!=0;delay--);
+    
     adc_sensor_init();
     while (1) {
+        // read value
         lightValue = adc_sens_read_total_solar();
-        senduint16(lightValue);
+        
+        // format
+        app_vars.lightValue_string[0] = '0'+((lightValue/10000)%10);
+        app_vars.lightValue_string[1] = '0'+((lightValue/ 1000)%10);
+        app_vars.lightValue_string[2] = '0'+((lightValue/  100)%10);
+        app_vars.lightValue_string[3] = '0'+((lightValue/   10)%10);
+        app_vars.lightValue_string[4] = '0'+((lightValue/    1)%10);
+        app_vars.lightValue_string[5] = '\r';
+        app_vars.lightValue_string[6] = '\n';
+        
+        // send string over UART
+        app_vars.uartDone              = 0;
+        app_vars.uart_lastTxByteIndex  = 0;
+        U1TXBUF     = app_vars.lightValue_string[app_vars.uart_lastTxByteIndex];
+        while(app_vars.uartDone==0);
     }
 }
 
-void senduint16(uint16_t val) {
-    sendchar('0'+((val/10000)%10));
-    sendchar('0'+((val/ 1000)%10));
-    sendchar('0'+((val/  100)%10));
-    sendchar('0'+((val/   10)%10));
-    sendchar('0'+((val/    1)%10));
-    sendchar('\n');
-    sendchar('\r');
-}
-
-void sendchar(uint8_t c) {
-    doneSending = 0;
-    U1TXBUF     = c;
-    while(doneSending==0);
-}
-
-/**
-\brief This function is called when the the UART module has received a byte.
-*/
 #pragma vector = USART1TX_VECTOR
-__interrupt void USART1TX_ISR (void)
-{
-   doneSending = 1;
+__interrupt void USART1TX_ISR (void) {
+    app_vars.uart_lastTxByteIndex++;
+    if (app_vars.uart_lastTxByteIndex<sizeof(app_vars.lightValue_string)) {
+        U1TXBUF     = app_vars.lightValue_string[app_vars.uart_lastTxByteIndex];
+    } else {
+        app_vars.uartDone = 1;
+    }
+}
+
+#pragma vector = USART1RX_VECTOR
+__interrupt void USART1RX_ISR (void) {
 }
