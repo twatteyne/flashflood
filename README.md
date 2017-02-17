@@ -1,6 +1,20 @@
 * schedule: http://wsn-testbed.it.uu.se:5000/
 * real-time Grafana: http://wsn-testbed.it.uu.se:3000/dashboard/db/experiment-overview?from=now-1m&to=now
 
+## most significant runs
+
+ours
+
+| run  | duration | energy         | reliability   | median latency |
+|------|----------|----------------|---------------|----------------|
+|  558 |     300  | 720.823209152  |         34/70 | 5888.5         |
+
+competition
+
+| run  | duration | energy         | reliability   | median latency | team |
+|------|----------|----------------|---------------|----------------|------|
+|  548 |     150  | 356.910110386  |         34/34 | 16090.5        |    1 |
+
 ## setup
 
 local
