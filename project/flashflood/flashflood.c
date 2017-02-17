@@ -496,35 +496,6 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     } else {
         // I'm NOT the sink node
         
-        if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
-            // I received a valid DATA frame
-
-#ifdef UART_HOP
-            // print
-            U1TXBUF = 'D';
-#endif
-            
-#ifdef LOCAL_SETUP
-            // no need on local setup
-#else   
-            // update my_hop
-            if (app_vars.my_hop==0){
-                if (app_vars.myId == ADDR_SENSING_NODE){
-                    // sensing node never relays
-                    return;
-                }
-                app_vars.my_hop = 1+rx_hop;
-            } else {
-                if (rx_hop>=app_vars.my_hop){
-                    // do not process if receive packet from node with higher hop than me
-                    return;
-                } else {
-                    app_vars.my_hop = 1+rx_hop;
-                }
-            }
-#endif
-        }
-        
         if (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1) {
             // I received a valid ACK frame
 
@@ -622,6 +593,36 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 P4OUT  |=  0x04;
             
             } while(reg_FSCTRL_byte0 & 0x10);
+        }
+      
+        
+        if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
+            // I received a valid DATA frame
+
+#ifdef UART_HOP
+            // print
+            U1TXBUF = 'D';
+#endif
+            
+#ifdef LOCAL_SETUP
+            // no need on local setup
+#else   
+            // update my_hop
+            if (app_vars.my_hop==0){
+                if (app_vars.myId == ADDR_SENSING_NODE){
+                    // sensing node never relays
+                    return;
+                }
+                app_vars.my_hop = 1+rx_hop;
+            } else {
+                if (rx_hop>=app_vars.my_hop){
+                    // do not process if receive packet from node with higher hop than me
+                    return;
+                } else {
+                    app_vars.my_hop = 1+rx_hop;
+                }
+            }
+#endif
         }
     }
 }
