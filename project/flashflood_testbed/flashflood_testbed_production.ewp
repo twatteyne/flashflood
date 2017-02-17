@@ -172,8 +172,7 @@
         <debug>1</debug>
         <option>
           <name>CCDefines</name>
-          <state>LIGHTPIN_ALLMOTES</state>
-          <state>UART_HOP</state>
+          <state></state>
         </option>
         <option>
           <name>CCPreprocFile</name>
