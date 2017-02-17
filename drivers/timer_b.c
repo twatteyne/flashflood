@@ -57,14 +57,14 @@ void timer_b_setEndFrameCb(timer_b_capture_cbt cb) {
 __interrupt void TIMERB1_ISR (void) {
    uint16_t tbiv_local;
    tbiv_local = TBIV;
-#ifdef LOCAL_SETUP
-   P6OUT |=  0x40;
+#ifdef ENABLE_DEBUGPINS
+   P6OUT |=  0x40; // P6.6
 #endif   
    if (tbiv_local==0x0004){
         // CCR2 compare fired
        
-#ifdef LOCAL_SETUP
-        P6OUT |=  0x80;
+#ifdef ENABLE_DEBUGPINS
+        P6OUT |=  0x80; // P6.7
 #endif
         // send TXON strobe
         
@@ -77,8 +77,8 @@ __interrupt void TIMERB1_ISR (void) {
         TBCCR2   =  0;
         TBCCTL2 &= ~CCIE;
         
-#ifdef LOCAL_SETUP
-        P6OUT &= ~0x80;
+#ifdef ENABLE_DEBUGPINS
+        P6OUT &= ~0x80; // P6.7
 #endif
    } else {
        if (tbiv_local==0x0002){
@@ -104,8 +104,8 @@ __interrupt void TIMERB1_ISR (void) {
        }
    }
    
-#ifdef LOCAL_SETUP
-   P6OUT &= ~0x40;
+#ifdef ENABLE_DEBUGPINS
+   P6OUT &= ~0x40; // P6.6
 #endif
    __bic_SR_register_on_exit(CPUOFF);
 }

@@ -111,22 +111,24 @@ int main(void) {
     DCOCTL    |=  DCO0 | DCO1 | DCO2;             // MCLK at ~8MHz
     BCSCTL1   |=  RSEL0 | RSEL1 | RSEL2;          // MCLK at ~8MHz
                                                   // by default, ACLK from 32kHz XTAL which is running
-#ifdef LOCAL_SETUP
+#ifdef ENABLE_LEDS
     // LEDs
     P5DIR     |=  0x70;                           // P5DIR = 0bx111xxxx for LEDs
-    P5OUT     |=  0x70;                           // P2OUT = 0bx111xxxx, all LEDs off
-
+    P5OUT     |=  0x70;                           // P5OUT = 0bx111xxxx, all LEDs off
+#endif
+    
+#ifdef ENABLE_DEBUGPINS
     // debugpins
+    P3DIR |=  0x10;      // [P3.4]
     P6DIR |=  0x40;      // [P6.6]
-    P6DIR |=  0x80;      // [P6.7]
     P2DIR |=  0x40;      // [P2.6]
     P3DIR |=  0x20;      // [P3.5]
-    P3DIR |=  0x10;      // [P3.4]
+    P6DIR |=  0x80;      // [P6.7]
 #endif
     
     // light pin
-    P2DIR |=  0x08;      // [P2.3]
-    P2OUT &= ~0x08;      // turn off by default
+    P2DIR |=  0x08;      // [P2.3] light pin
+    P2OUT &= ~0x08;      // [P2.3] turn off by default
     
     // Timer A
     timer_a_init();
@@ -190,9 +192,6 @@ int main(void) {
     //                             1000 0000 1111 1111
     //                                8    0    f    f
     cc2420_spiWriteReg(CC2420_TXCTRL_ADDR,  &cc2420_status,0x80ff);
-    
-    
-    // apply correction recommended in datasheet
     
     // configure RXCTRL1 register
     // 15:14 reserved          00
@@ -278,14 +277,13 @@ int main(void) {
     
     //==== create packet to transmit
     
-    // FCF is always the same
-    app_vars.packetTx[0] = FRAME_DATA_FCF0; // fcf byte0
-    app_vars.packetTx[1] = FRAME_DATA_FCF1; // fcf byte1
+    app_vars.packetTx[0] = FRAME_DATA_FCF0;
+    app_vars.packetTx[1] = FRAME_DATA_FCF1;
     for (i=0;i<4;i++){
 #ifdef LOCAL_SETUP
-        app_vars.packetTx[i+3] = app_vars.myRfId+0x11; // 
+        app_vars.packetTx[i+3] = app_vars.myRfId+0x11;
 #else 
-        app_vars.packetTx[i+3] = 0x11; // all destination is 0x11
+        app_vars.packetTx[i+3] = 0x11;
 #endif
     }
     
@@ -351,13 +349,13 @@ void timera_ccr2_compare_cb(void) {
             
             app_vars.light_state  = 1;
             iShouldSend           = 1;
-            P2OUT                |= 0x08;         // set light pin
+            P2OUT                |= 0x08;   // [P2.3] light pin
         } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LUX_THRESHOLD - LUX_HYSTERESIS))) {
             // light was just turned off
             
             app_vars.light_state  = 0;
             iShouldSend           = 1;
-            P2OUT                &= ~0x08;        // clear light pin
+            P2OUT                &= ~0x08;  // [P2.3] light pin
         } else {
             // light stays in same state
             
@@ -365,7 +363,7 @@ void timera_ccr2_compare_cb(void) {
         }
         
         if (iShouldSend){
-#ifdef LOCAL_SETUP
+#ifdef ENABLE_LEDS
             P5OUT      ^=  0x10; // toggle red leds
 #endif
             app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
@@ -470,9 +468,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     if (app_vars.myId==ADDR_SINK_NODE) {
 #endif
         if (rx_light==1){
-            P2OUT |=  0x08;
+            P2OUT |=  0x08; // [P2.3] light pin
         } else {
-            P2OUT &= ~0x08;
+            P2OUT &= ~0x08; // [P2.3] light pin
         }
     }
     
@@ -544,8 +542,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 }
             }
 #endif
-#ifdef LOCAL_SETUP
-            P3OUT ^= 0x20;
+            
+#ifdef ENABLE_DEBUGPINS
+            P3OUT ^= 0x20; // P3.5
 #endif
             
             // the process of loading the relayed packet take approx. 183us

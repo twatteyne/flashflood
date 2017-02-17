@@ -172,7 +172,7 @@
         <debug>1</debug>
         <option>
           <name>CCDefines</name>
-          <state></state>
+          <state>LIGHTPIN_ALLMOTES</state>
         </option>
         <option>
           <name>CCPreprocFile</name>

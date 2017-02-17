@@ -55,20 +55,22 @@ void timer_a_setCompareCCR1andReturnTBRcb(timer_a_capture_cbt cb) {
 
 #pragma vector = TIMERA1_VECTOR
 __interrupt void TIMERA1_ISR (void) {
-   uint16_t taiv_local;
-   uint16_t timestamp;
-   timestamp  = TBR;
-   taiv_local = TAIV;
-#ifdef LOCAL_SETUP
-      P3OUT |=  0x10;
+    uint16_t taiv_local;
+    uint16_t timestamp;
+    timestamp  = TBR;
+    taiv_local = TAIV;
+
+#ifdef ENABLE_DEBUGPINS
+    P3OUT |=  0x10; // P3.4
 #endif
-   if (taiv_local==0x0002) {
-       // CCR1 compare happeded
+
+    if (taiv_local==0x0002) {
+        // CCR1 compare happeded
        
-#ifdef LOCAL_SETUP
-       P2OUT ^= 0x40;
+#ifdef ENABLE_DEBUGPINS
+        P2OUT ^= 0x40; // P2.6
 #endif
-       timer_a_vars.compareCCR1andReturnTBRcb(timestamp);
+        timer_a_vars.compareCCR1andReturnTBRcb(timestamp);
    } else {
       if (taiv_local==0x0004) {
           timer_a_vars.compareCCR2Cb();
@@ -81,8 +83,8 @@ __interrupt void TIMERA1_ISR (void) {
           }
       }
    }
-#ifdef LOCAL_SETUP
-   P3OUT &= ~0x10;
+#ifdef ENABLE_DEBUGPINS
+   P3OUT &= ~0x10; // P3.4
 #endif
    __bic_SR_register_on_exit(CPUOFF);
 }

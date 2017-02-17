@@ -173,6 +173,9 @@
         <option>
           <name>CCDefines</name>
           <state>LOCAL_SETUP</state>
+          <state>LIGHTPIN_ALLMOTES</state>
+          <state>ENABLE_LEDS</state>
+          <state>ENABLE_DEBUGPINS</state>
         </option>
         <option>
           <name>CCPreprocFile</name>
@@ -994,7 +997,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state></state>
+          <state>$PROJ_FNAME$.ulp</state>
         </option>
         <option>
           <name>ULPStatus</name>
