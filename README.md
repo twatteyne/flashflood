@@ -74,7 +74,7 @@ testbed
 | `ENABLE_LEDS`       |                            |                              |
 | `ENABLE_DEBUGPINS`  |                            |                              |
 
-## DSN contents
+## DSN contents and use
 
 ```
   7 6 5 4 3 2 1 0
@@ -86,8 +86,6 @@ testbed
 * `L`: state light (0=off, 1=high)
 * `seq`: increments at each new light switch
 * `hop`: sensing node is hop 0
-
-## diagram
 
 ```
 local setup
@@ -114,6 +112,26 @@ local setup
                 my_addr=0x11  my_addr=0x11  my_addr=0x11
 
 testbed setup
+```
+
+## packet format
+
+DATA
+
+```
+    0     1     2     3     4     5     6     7     8
+ +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ |    FCF    | DSN |   PANID   |   dest    |    CRC    |
+ +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+```
+
+ACK
+
+```
+    0     1     2     3     4
+ +-----+-----+-----+-----+-----+
+ |    FCF    | DSN |    CRC    |
+ +-----+-----+-----+-----+-----+
 ```
 
 ## reference power consumption
