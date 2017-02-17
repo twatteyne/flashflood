@@ -18,18 +18,12 @@
     #define ADDR_SENSING_NODE     0xdd
 
     #define ADDR_HOP1_A_NODE      0x0f
-    #define ADDR_HOP1_B_NODE      0x05
+    #define ADDR_HOP1_B_NODE      0x16
 
-    #define ADDR_HOP2_A_NODE      0x16
+    #define ADDR_HOP2_A_NODE      0x5e
     #define ADDR_HOP2_B_NODE      0x57
 
-    #define ADDR_HOP3_A_NODE      0x2b
-    #define ADDR_HOP3_B_NODE      0x5e
-
-    #define ADDR_HOP4_A_NODE      0xc8
-    #define ADDR_HOP4_B_NODE      0xba
-
-    #define ADDR_SINK_NODE        0x00
+    #define ADDR_SINK_NODE        0x05
 #else
     #define ADDR_SENSING_NODE     0xa0
     #define ADDR_SINK_NODE        0xab
@@ -129,16 +123,8 @@ int main(void) {
         case ADDR_HOP2_B_NODE:
             app_vars.my_addr  = 3;
             break;
-        case ADDR_HOP3_A_NODE:
-        case ADDR_HOP3_B_NODE:
-            app_vars.my_addr  = 4;
-            break;
-        case ADDR_HOP4_A_NODE:
-        case ADDR_HOP4_B_NODE:
-            app_vars.my_addr  = 5;
-            break;
         case ADDR_SINK_NODE:
-            app_vars.my_addr  = 6;
+            app_vars.my_addr  = 4;
             break;
         default:
             break;
