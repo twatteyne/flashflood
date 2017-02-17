@@ -40,8 +40,8 @@
 #define LIGHT_THRESHOLD           400
 #define LIGHT_HYSTERESIS          100
 
-#define RETRANSMIT_DELAY_TICKS    7        // 7@32768Hz = 210us, between end of ACK and start of DATA
-#define CALIBRATION_PERIOD_TICKS  224// (RETRANSMIT_DELAY_TICKS<<5)   // RETRANSMIT_DELAY<<5
+#define RETRANSMIT_DELAY_TICKS    7                             // 7@32768Hz = 210us, between end of ACK and start of DATA
+#define CALIBRATION_PERIOD_TICKS  (RETRANSMIT_DELAY_TICKS<<5)   // RETRANSMIT_DELAY<<5
 
 // txfifo dsn address (0x003)
 #define WRITE_TXFIFO_DSN_BYTE0    0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
