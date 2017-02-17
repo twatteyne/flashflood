@@ -66,7 +66,9 @@ typedef struct {
     
     uint8_t             myId;
     uint8_t             current_seq;
+#ifdef LOCAL_SETUP
     uint8_t             my_hop;
+#endif
     uint8_t             my_addr;
     uint16_t            retransmitDelaySubticks;
     uint16_t            lastTimestamp;
@@ -388,7 +390,7 @@ void timera_ccr2_compare_cb(void) {
 #ifdef LOCAL_SETUP
             U0TXBUF     = (app_vars.light_state<<7) | ((app_vars.my_hop+2)<<4) | app_vars.current_seq;
 #else
-            U0TXBUF     = (app_vars.light_state<<7) |                           app_vars.current_seq;
+            U0TXBUF     = (app_vars.light_state<<7) |                            app_vars.current_seq;
 #endif
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
@@ -512,6 +514,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #ifdef UART_HOP
             // print
             U1TXBUF = 'A';
+            U1TXBUF = rx_hop+'0';
 #endif
             
 #ifdef LOCAL_SETUP
@@ -523,19 +526,16 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 }
             }
 #else
-            if (app_vars.my_hop==0){
-                if (app_vars.myId == ADDR_SENSING_NODE){
-                    // sensing node never relays
-                    return;
-                }
-                app_vars.my_hop = 1+rx_hop;
+            if (
+                (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
+                (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
+            ){
+                
+                // update current_seq
+                app_vars.current_seq = rx_seq;
             } else {
-                if (rx_hop>=app_vars.my_hop){
-                    // do not process if receive packet from node with higher hop than me
-                    return;
-                } else {
-                    app_vars.my_hop = 1+rx_hop;
-                }
+                // old sequence number, end the process
+                return;
             }
 #endif
             
@@ -574,7 +574,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #ifdef LOCAL_SETUP
             U0TXBUF     = (rxpkt_dsn & 0x8f) | ((app_vars.my_hop+2)<<4);
 #else
-            U0TXBUF     = (rxpkt_dsn & 0x8f) | (app_vars.my_hop<<4);
+            U0TXBUF     = (rxpkt_dsn & 0x8f) | ((rx_hop         +1)<<4);
 #endif
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
@@ -612,25 +612,22 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #ifdef UART_HOP
             // print
             U1TXBUF = 'D';
+            U1TXBUF = rx_hop+'0';
 #endif
             
 #ifdef LOCAL_SETUP
             // no need on local setup
 #else   
-            // update my_hop
-            if (app_vars.my_hop==0){
-                if (app_vars.myId == ADDR_SENSING_NODE){
-                    // sensing node never relays
-                    return;
-                }
-                app_vars.my_hop = 1+rx_hop;
+            if (
+                (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
+                (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
+            ){
+                
+                // update current_seq
+                app_vars.current_seq = rx_seq;
             } else {
-                if (rx_hop>=app_vars.my_hop){
-                    // do not process if receive packet from node with higher hop than me
-                    return;
-                } else {
-                    app_vars.my_hop = 1+rx_hop;
-                }
+                // old sequence number, end the process
+                return;
             }
 #endif
         }
