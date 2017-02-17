@@ -68,7 +68,7 @@ typedef struct {
     uint8_t             current_seq;
     uint8_t             myHop;
     uint8_t             myRfId;
-    uint16_t            subticks;
+    uint16_t            retransmitDelaySubticks;
     uint16_t            lastTimestamp;
     
     uint8_t             light_state;
@@ -307,7 +307,7 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
     uint16_t temp;
     
     if (app_vars.lastTimestamp==0){
-        app_vars.subticks = 149*RETRANSMIT_DELAY;
+        app_vars.retransmitDelaySubticks = 149*RETRANSMIT_DELAY_TICKS;
     } else {
         if (timestamp>app_vars.lastTimestamp){
             temp = timestamp-app_vars.lastTimestamp;
@@ -315,12 +315,12 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
             temp  = 0xffff-app_vars.lastTimestamp;
             temp += (timestamp+1);
         }
-        app_vars.subticks = (temp>>5); // subticks in RETRANSMIT_DELAY ticks
+        app_vars.retransmitDelaySubticks = (temp>>5); // subticks in RETRANSMIT_DELAY ticks
         
         // at 3V, the typical Frequency ranges from 4.4MHz to 5.4MHz,
-        // so the theoretical value of subticks ranges from (134~165)
-        if (app_vars.subticks<134*RETRANSMIT_DELAY || app_vars.subticks>165*RETRANSMIT_DELAY_TICKS){
-            app_vars.subticks = 149*RETRANSMIT_DELAY_TICKS;
+        // so the theoretical value of retransmitDelaySubticks ranges from (134~165)
+        if (app_vars.retransmitDelaySubticks<134*RETRANSMIT_DELAY_TICKS || app_vars.retransmitDelaySubticks>165*RETRANSMIT_DELAY_TICKS){
+            app_vars.retransmitDelaySubticks = 149*RETRANSMIT_DELAY_TICKS;
         }
     }
     
@@ -545,7 +545,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #endif
             
             // the process of loading the relayed packet take approx. 183us
-            TBCCR2      = timestamp+app_vars.subticks;
+            TBCCR2      = timestamp+app_vars.retransmitDelaySubticks;
             TBCCTL2     = CCIE;
             
             //===== prepare radio to relay
