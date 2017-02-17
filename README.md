@@ -20,13 +20,13 @@ competition
 
 local
 
-| EUI64                     |GoLogic | role         | tengfei |
+| EUI64                     |GoLogic | role         | Tengfei |
 |---------------------------|--------|--------------|---------|
 | `14-15-92-00-12-e6-3b-dd` | A8     | sensing node |  COM20  |
-| `14-15-92-00-12-e6-43-0f` |        | hop 1;  A    |  COM16  |
-| `14-15-92-00-12-e6-6f-16` | B1     | hop 1;  B    |  COM19  |
-| `14-15-92-00-12-e6-bb-5e` |        | hop 2;  A    |  COM17  |
-| `14-15-92-00-12-e6-b9-57` | B8     | hop 2;  B    |  COM16  |
+| `14-15-92-00-12-e6-43-0f` |        | hop 1, A     |  COM16  |
+| `14-15-92-00-12-e6-6f-16` | B1     | hop 1, B     |  COM19  |
+| `14-15-92-00-12-e6-bb-5e` |        | hop 2, A     |  COM17  |
+| `14-15-92-00-12-e6-b9-57` | B8     | hop 2, B     |  COM16  |
 | `14-15-92-00-12-e6-79-05` |        | sink node    |  COM18  |
 
 testbed
@@ -176,11 +176,11 @@ ACK
 
 ## pins
 
-| pin  | role      | description |
-|------|-----------|-------------|
-| P2.3 | light pin | output pin on the sink node (possibly on all nodes) |
-| P3.4 |  debugpin | high during Timer A ISR |
-| P6.6 |  debugpin | high during Timer B ISR |
-| P2.6 |  debugpin | toggle at beginning of calibration |
-| P3.5 |  debugpin | toggle when mote decides to retransmit (after ACK) |
-| P6.7 |  debugpin | TODO |
+| pin  | name          | role      | description |
+|------|---------------|-----------|-------------|
+| P2.3 | `light`       | light pin | output pin on the sink node (possibly on all nodes) |
+| P3.4 | `timerA`      | debugpin  | high during Timer A ISR |
+| P6.6 | `timerB`      | debugpin  | high during Timer B ISR |
+| P2.6 | `calibration` | debugpin  | toggle at beginning of calibration |
+| P3.5 | `retransmit`  | debugpin  | toggle when mote decides to retransmit (after ACK) |
+| P6.7 | `debug`       | debugpin  | |
