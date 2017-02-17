@@ -671,7 +671,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state>flashflood.d43</state>
+          <state>flashflood_testbed_debug.d43</state>
         </option>
         <option>
           <name>OutputFormat</name>
@@ -865,7 +865,7 @@
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>flashflood.ihex</state>
+          <state>flashflood_testbed_debug.ihex</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
