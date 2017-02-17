@@ -20,7 +20,7 @@
     #define ADDR_HOP1_A_NODE      0x0f
     #define ADDR_HOP1_B_NODE      0x16
 
-    #define ADDR_HOP2_A_NODE      0x5e
+    #define ADDR_HOP2_A_NODE      0x2b
     #define ADDR_HOP2_B_NODE      0x57
 
     #define ADDR_SINK_NODE        0x05
@@ -73,6 +73,12 @@ typedef struct {
 #ifdef LOCAL_SETUP
     uint8_t             my_hop;
 #endif
+#ifdef UART_HOP
+    uint8_t             fSomethingToPrint;
+    uint8_t             dsnToPrint;
+    uint8_t             bufferToPrint[5];
+    uint8_t             nextIndexToPrint;
+#endif
     uint8_t             my_addr;
     uint16_t            retransmitDelaySubticks;
     uint16_t            lastTimestamp;
@@ -92,6 +98,9 @@ app_vars_t app_vars;
 void timera_ccr2_compare_cb(void);
 void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp);
 void timer_b_cb_endFrame(uint16_t timestamp);
+#ifdef UART_HOP
+void formatStringToPrint();
+#endif
 
 //=========================== main ============================================
 
@@ -469,7 +478,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
     // parse DSN
     rx_light       = ((rxpkt_dsn&0x80)>>7);
     rx_hop         = ((rxpkt_dsn&0x70)>>4);
-    rx_seq         = ((rxpkt_dsn&0x0f)>>0);
+    rx_seq         = ((rxpkt_dsn&0x0f)>>0); 
     
     if (app_vars.myId==ADDR_SINK_NODE){
         // I'm the sink node
@@ -489,11 +498,12 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 LED_LIGHT_OFF;
 #endif
             }
-          
+            
             if (
                 (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
                 (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
             ){
+                // it's a new sequence number
                 
                 // update current_seq
                 app_vars.current_seq = rx_seq;
@@ -523,19 +533,16 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #endif
                 }
             }
-
-
-#ifdef UART_HOP
-            // print
-            U1TXBUF = 'A';
-            U1TXBUF = rx_hop+'0';
-#endif
             
 #ifdef LOCAL_SETUP
             if (app_vars.my_hop==0 || app_vars.my_hop==1){
+                // not for me
+                
                 return;
             } else {
                 if (app_vars.my_hop!=rx_hop){
+                    // not for me
+                    
                     return;
                 }
             }
@@ -549,6 +556,12 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 app_vars.current_seq = rx_seq;
             } else {
                 // old sequence number, end the process
+#ifdef UART_HOP
+                if (app_vars.fSomethingToPrint==1) {
+                    formatStringToPrint();
+                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+                }
+#endif
                 return;
             }
 #endif
@@ -556,6 +569,13 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #ifdef ENABLE_DEBUGPINS
             P3OUT ^= 0x20; // P3.5
 #endif
+            // if I get here, I'm going to relay
+            
+#ifdef UART_HOP
+           // store DSN field to print over UART
+           app_vars.dsnToPrint = rxpkt_dsn;
+           app_vars.fSomethingToPrint = 1;
+#endif  
             
             // the process of loading the relayed packet take approx. 183us
             TBCCR2      = timestamp+app_vars.retransmitDelaySubticks;
@@ -618,17 +638,10 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             
             } while(reg_FSCTRL_byte0 & 0x10);
         }
-      
         
         if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
             // I received a valid DATA frame
 
-#ifdef UART_HOP
-            // print
-            U1TXBUF = 'D';
-            U1TXBUF = rx_hop+'0';
-#endif
-            
 #ifdef LOCAL_SETUP
             // no need on local setup
 #else   
@@ -641,17 +654,47 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 app_vars.current_seq = rx_seq;
             } else {
                 // old sequence number, end the process
-                return;
+#ifdef UART_HOP
+                if (app_vars.fSomethingToPrint==1) {
+                    formatStringToPrint();
+                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+                }
+#endif
             }
 #endif
         }
     }
 }
 
+#ifdef UART_HOP
+void formatStringToPrint() {
+    uint8_t rx_seq;
+    
+    rx_seq         = ((app_vars.dsnToPrint&0x0f)>>0);
+  
+    app_vars.bufferToPrint[0]     = ' ';
+    app_vars.bufferToPrint[1]     = '0'+((app_vars.dsnToPrint&0x80)>>7); // light
+    app_vars.bufferToPrint[2]     = '0'+((app_vars.dsnToPrint&0x70)>>4); // hop
+    if (rx_seq<10) {
+       app_vars.bufferToPrint[3] = '0'+rx_seq;                           // seq
+    } else {
+       app_vars.bufferToPrint[3] = 'a'+(rx_seq-10);
+    }
+    
+    app_vars.bufferToPrint[4] = '\n';
+    app_vars.nextIndexToPrint = 0;
+}
+
 #pragma vector = USART1TX_VECTOR
 __interrupt void USART1TX_ISR (void) {
+    app_vars.nextIndexToPrint++;
+    if (app_vars.nextIndexToPrint>sizeof(app_vars.bufferToPrint)) {
+    } else {
+        U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+    }
 }
 
 #pragma vector = USART1RX_VECTOR
 __interrupt void USART1RX_ISR (void) {
 }
+#endif

@@ -4,6 +4,15 @@ import _winreg as winreg
 import threading
 import serial
 
+SERIALPORTMAP = {
+    'COM20': 'sensing node',
+    'COM16': 'hop 1, A',
+    'COM19': 'hop 1, B',
+    'COM5':  'hop 2, A',
+    'COM21': 'hop 2, B',
+    'COM18': 'sink node',
+}
+
 def findSerialPorts():
     '''
     Returns ['COM1','COM2']
@@ -30,11 +39,19 @@ def findSerialPorts():
     
     return serialports
 
+class ProtectedPrinter(object):
+    def __init__(self):
+        self.screenLock = threading.Lock()
+    def pprint(self,s):
+        with self.screenLock:
+            print s
+
 class SerialListerer(threading.Thread):
-    def __init__(self,serialport):
+    def __init__(self,serialport,pp):
         
         # store params
         self.serialport = serialport
+        self.pp = pp
         
         # local variables
         
@@ -52,7 +69,7 @@ class SerialListerer(threading.Thread):
         while True:
             c = self.mote.read(1)
             if c=='\n':
-                print '{0}: {1}'.format(self.serialport,''.join(self.rxBuf))
+                self.pp.pprint('{0:>15}: {1}'.format(SERIALPORTMAP[self.serialport],''.join(self.rxBuf)))
                 self.rxBuf  = []
             else:
                 self.rxBuf += [c]
@@ -60,10 +77,11 @@ class SerialListerer(threading.Thread):
 # =========================== main ============================================
 def main():
     
+    pp = ProtectedPrinter()
     serialports = findSerialPorts()
-    
+    print serialports
     for serialport in serialports:
-        SerialListerer(serialport)
+        SerialListerer(serialport,pp)
     
     while True:
         command = raw_input('Press \'q\' to quit\n')
