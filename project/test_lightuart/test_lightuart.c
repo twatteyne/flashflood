@@ -46,10 +46,10 @@ int main(void) {
     
     for (delay=0xffff;delay!=0;delay--);
     
-    adc_sensor_init();
+    adc_init();
     while (1) {
         // read value
-        lightValue = adc_sens_read_total_solar();
+        lightValue = adc_read_light();
         
         // format
         app_vars.lightValue_string[0] = '0'+((lightValue/10000)%10);

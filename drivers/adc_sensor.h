@@ -12,10 +12,7 @@
 
 //=========================== prototypes ======================================
 
-void adc_sensor_init(void);
-uint16_t adc_sens_read_photosynthetic(void);
-float adc_sens_convert_photosynthetic(uint16_t cputemp);
-uint16_t adc_sens_read_total_solar(void);
-float adc_sens_convert_total_solar(uint16_t cputemp);
+void     adc_init(void);
+uint16_t adc_read_light(void);
 
 #endif // __ADC_SENSOR_H__

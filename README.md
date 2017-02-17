@@ -93,7 +93,7 @@ testbed
 
 | interrupt      | description |
 |----------------|-------------|
-| `CCR1` compare | Used to calibrate ~5 MHz clock speed: how many subticks in 7 ticks?. Fires 32*7 ticks (6836us), compare TBR against last value of TBR. Then `value<<5` is the number of subticks in 7 ticks |
+| `CCR1` compare | Used to calibrate ~5 MHz clock speed: how many subticks in 7 ticks? Fires every 32*7 ticks (6836us), compare TBR against last value of TBR. Then `value>>5` is the number of subticks in 7 ticks. |
 | `CCR2` compare | Used to trigger light sensor sampling. Fires every 100 ticks (~3050us) |
 | `overflow`     | _enabled by default, but no action_ |
 

@@ -12,12 +12,8 @@
 //=========================== variables =======================================
 
 typedef struct {
-   timer_b_compare_cbt    compareCb;
-   timer_b_capture_cbt    startFrameCb;
    timer_b_capture_cbt    endFrameCb;
    uint8_t                f_SFDreceived;
-   uint16_t               offset;
-   uint8_t                packetTobeSent;
 } timer_b_vars_t;
 
 timer_b_vars_t timer_b_vars;
@@ -49,29 +45,14 @@ void timer_b_init() {
     TBCTL   |=  MC_2+TBSSEL_2;                    // continue mode, clocked from SMCLK
 }
 
-void timer_b_setCompareCb(timer_b_compare_cbt cb) {
-    timer_b_vars.compareCb      = cb;
-}
-
-void timer_b_setStartFrameCb(timer_b_capture_cbt cb) {
-    timer_b_vars.startFrameCb   = cb;
-}
-
 void timer_b_setEndFrameCb(timer_b_capture_cbt cb) {
     timer_b_vars.endFrameCb     = cb;
-}
-
-void timer_b_setOffset(uint16_t offset){
-    timer_b_vars.offset = offset;
-}
-
-void timer_b_setPacketTobeSent(){
-    timer_b_vars.packetTobeSent = 1;
 }
 
 //=========================== private =========================================
 
 //=========================== interrupt handlers ==============================
+
 #pragma vector = TIMERB1_VECTOR
 __interrupt void TIMERB1_ISR (void) {
    uint16_t tbiv_local;
@@ -80,32 +61,35 @@ __interrupt void TIMERB1_ISR (void) {
    P6OUT |=  0x40;
 #endif   
    if (tbiv_local==0x0004){
+        // CCR2 compare fired
+       
 #ifdef LOCAL_SETUP
         P6OUT |=  0x80;
 #endif
         // send TXON strobe
         
-        // pull high after timer experid.
-        P4OUT  &= ~0x04;
-        // write next byte to TX buffer
-        U0TXBUF  = CC2420_STXON;
-        // busy wait on the interrupt flag
+        P4OUT     &= ~0x04;
+        U0TXBUF    =  CC2420_STXON;
         while ((IFG1 & URXIFG0)==0);
-        // clear the interrupt flag
-        IFG1    &= ~URXIFG0;
-        // pull highs
-        P4OUT   |=  0x04;
+        IFG1      &= ~URXIFG0;
+        P4OUT     |=  0x04;
 
         TBCCR2   =  0;
         TBCCTL2 &= ~CCIE;
+        
 #ifdef LOCAL_SETUP
         P6OUT &= ~0x80;
 #endif
    } else {
        if (tbiv_local==0x0002){
+            // CCR1 capture triggered (SFD pin toggled)
+           
             if (TBCCTL1 & CCI) {
+                 // SFD pin went high
                  timer_b_vars.f_SFDreceived = 1;
             } else {
+                 // SFD pin went low
+                
                  if (timer_b_vars.f_SFDreceived == 1) {
                      timer_b_vars.endFrameCb(TBCCR1);
                      timer_b_vars.f_SFDreceived = 0;
@@ -115,10 +99,11 @@ __interrupt void TIMERB1_ISR (void) {
             }
        } else {
             if (tbiv_local==0x000e){
-                //overflow
+                // overflow
             }
        }
    }
+   
 #ifdef LOCAL_SETUP
    P6OUT &= ~0x40;
 #endif

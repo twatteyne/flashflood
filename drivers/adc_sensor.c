@@ -6,28 +6,33 @@
 
 //=========================== prototype =======================================
 
-void start(void);
-void stop(void);
+void adc_start(void);
+void adc_stop(void);
 
 //=========================== public ==========================================
 
-inline void stop(void)
-{
-  //stop converting immediately
-  ADC12CTL0 &= ~ENC;
-  
-  //need to remove CONSEQ_3 if not EOS is configured
-  ADC12CTL1 &= ~CONSEQ_3;
-
-  //wait for conversion to stop
-  while(ADC12CTL1 & ADC12BUSY);
-
-  //clear any pending interrupts
-  ADC12IFG = 0;
+void adc_init(void) {
+    
+    // stop the sensors
+    adc_stop();
+    
+    // set bits P6.4 and P6.5 as peripherals
+    P6SEL |= ((1 << INCH_4) | (1 << INCH_5));
+    
+    // set ADC config
+    ADC12MCTL4 = INCH_4 | SREF_0;
+    ADC12MCTL5 = INCH_5 | SREF_0;
+    
+    adc_start();
 }
 
-inline void start(void)
-{
+uint16_t adc_read_light(void) {
+    return ADC12MEM5;
+}
+
+//=========================== private =========================================
+
+inline void adc_start(void) {
   //setup ADC12 parameters
   //128 sampling cycles
   //reference 2.5V
@@ -45,7 +50,7 @@ inline void start(void)
   ADC12MCTL2 &= ~EOS;
   ADC12MCTL3 &= ~EOS;
   ADC12MCTL4 &= ~EOS;
-  ADC12MCTL5 |= EOS;
+  ADC12MCTL5 |=  EOS;
   
   //set the first conversion register P^.4
   ADC12CTL1 |= CSTARTADD_4;
@@ -58,56 +63,16 @@ inline void start(void)
   ADC12CTL0 |= ADC12SC;
 }
 
-/**
-   \brief Initialize the sensor
-*/
-void adc_sensor_init(void) {
+inline void adc_stop(void) {
+  //stop converting immediately
+  ADC12CTL0 &= ~ENC;
   
-  //stop the sensors
-  stop();
-  
-  //set bits P6.4 and P6.5 as peripherals
-  P6SEL |= ((1 << INCH_4) | (1 << INCH_5));
-  
-  //set ADC config
-  ADC12MCTL4 = INCH_4 | SREF_0;
-  ADC12MCTL5 = INCH_5 | SREF_0;
-  
-  start();
-}
+  //need to remove CONSEQ_3 if not EOS is configured
+  ADC12CTL1 &= ~CONSEQ_3;
 
-/**
-   \brief Read rough data from sensor
-   \param[out] ui16Dummy rough data.
-*/
-uint16_t adc_sens_read_total_solar(void) {
-   return ADC12MEM5;
-}
+  //wait for conversion to stop
+  while(ADC12CTL1 & ADC12BUSY);
 
-/**
-   \brief Convert rough data to human understandable
-   \param[in] cputemp rough data.
-   \param[out] the number of registered OpenSensors.
-*/
-float adc_sens_convert_total_solar(uint16_t cputemp) {
-   return 0;
+  //clear any pending interrupts
+  ADC12IFG = 0;
 }
-
-/**
-   \brief Read rough data from sensor
-   \param[out] ui16Dummy rough data.
-*/
-uint16_t adc_sens_read_photosynthetic(void) {
-   return ADC12MEM4;
-}
-
-/**
-   \brief Convert rough data to human understandable
-   \param[in] cputemp rough data.
-   \param[out] the number of registered OpenSensors.
-*/
-float adc_sens_convert_photosynthetic(uint16_t cputemp) {
-   return 0;
-}
-
-//=========================== private =========================================

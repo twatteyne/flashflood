@@ -9,8 +9,8 @@
 
 //=========================== app-specific ====================================
 
-#define MIN_FRAME_LENGTH          2 // TODO: bump to FRAME_LENGTH_ACK?
-#define MAX_FRAME_LENGTH          9 // see variable FRAME_LENGTH_DATA
+#define MIN_FRAME_LENGTH          2 // TODO: bump to FRAME_ACK_LEN?
+#define MAX_FRAME_LENGTH          9 // see variable FRAME_DATA_LEN
 
 //=========================== spi flags =======================================
 

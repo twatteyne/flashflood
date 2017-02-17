@@ -7,10 +7,10 @@
 //=========================== variables =======================================
 
 typedef struct {
-   timer_a_cbt    overflowCb;
-   timer_a_cbt    compareCCR2Cb;
-   timer_a_capture_cbt    CompareCCR1andReturnTBRcb;
-   uint16_t last_compare_value;
+   timer_a_cbt          overflowCb;
+   timer_a_cbt          compareCCR2Cb;
+   timer_a_capture_cbt  compareCCR1andReturnTBRcb;
+   uint16_t             last_compare_value;
 } timer_a_vars_t;
 
 timer_a_vars_t timer_a_vars;
@@ -48,7 +48,7 @@ void timer_a_setCompareCCR2Cb(timer_a_cbt cb) {
 }
 
 void timer_a_setCompareCCR1andReturnTBRcb(timer_a_capture_cbt cb) {
-    timer_a_vars.CompareCCR1andReturnTBRcb    = cb;
+    timer_a_vars.compareCCR1andReturnTBRcb    = cb;
 }
 
 //=========================== interrup handlers ===============================
@@ -68,7 +68,7 @@ __interrupt void TIMERA1_ISR (void) {
 #ifdef LOCAL_SETUP
        P2OUT ^= 0x40;
 #endif
-       timer_a_vars.CompareCCR1andReturnTBRcb(timestamp);
+       timer_a_vars.compareCCR1andReturnTBRcb(timestamp);
    } else {
       if (taiv_local==0x0004) {
           timer_a_vars.compareCCR2Cb();
