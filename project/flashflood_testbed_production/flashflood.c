@@ -34,6 +34,11 @@
 #define DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION 42 // @32kHz, 42=1.27ms
 #define RADIO_STARTUP_DURATION    300  // 1ms
 
+#ifdef LOCAL_SETUP
+    #define HOP1_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET  29 //  @32kHz, 29=864us 
+    #define HOP2_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET  52 //  @32kHz, 29=1.58ms
+#endif
+
 #define LIGHT_THRESHOLD           400
 #define LIGHT_HYSTERESIS          100
 
@@ -75,6 +80,7 @@ typedef struct {
     uint8_t             current_seq;
 #ifdef LOCAL_SETUP
     uint8_t             my_hop;
+    uint8_t             fTurnOSCOffAtNextEndOfFrame;
 #endif
 #ifdef UART_HOP
     uint8_t             fSomethingToPrint;
@@ -353,7 +359,7 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
 // sample light sensor
 void timera_ccr2_compare_cb(void) {
     uint8_t rxByte;  
-  
+    
     if (app_vars.myId==ADDR_SENSING_NODE){
         
         app_vars.light_reading = adc_read_light();
@@ -412,8 +418,9 @@ void timera_ccr2_compare_cb(void) {
         TACCTL2  =  CCIE;
     } else {
 #ifdef ENABLE_DEBUGPINS
-        P6OUT^=0x80;
+        P6OUT |= 0x80;
 #endif
+      
         // turn on oscillator
         P4OUT      &= ~0x04;
         U0TXBUF     = CC2420_SXOSCON;
@@ -583,6 +590,9 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                     // not for me
                     
                     return;
+                } else {
+                    // after re-transmiting the packet, I need turn of radio OSC
+                    app_vars.fTurnOSCOffAtNextEndOfFrame=1;
                 }
             }
 #else
@@ -684,41 +694,75 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                 P4OUT  |=  0x04;
             
             } while(reg_FSCTRL_byte0 & 0x10);
-        }
-        
-        if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
-            // I received a valid DATA frame
+        } else {
+            
+            if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
+                // I received a valid DATA frame
 
 #ifdef LOCAL_SETUP
-            // no need on local setup
+                if (app_vars.my_hop ==0){
+                    return;
+                }
+                app_vars.fTurnOSCOffAtNextEndOfFrame=1;
 #else   
-            if (
-                (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
-                (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
-            ){
-                
-                // update current_seq
-                app_vars.current_seq                = rx_seq;
+                if (
+                    (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
+                    (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
+                ){
+                    
+                    // update current_seq
+                    app_vars.current_seq                = rx_seq;
+                } else {
+                    // old sequence number, end the process
+    #ifdef UART_HOP
+                    if (app_vars.fSomethingToPrint==1) {
+                        formatStringToPrint();
+                        U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+                    }
+    #endif
+                    TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
+                    TACCTL2  =  CCIE;
+                    // send XOSCOFF strobe 
+                    P4OUT      &= ~0x04;
+                    U0TXBUF     = CC2420_SXOSCOFF;
+                    while ((IFG1 & URXIFG0)==0);
+                    IFG1       &= ~URXIFG0;
+                    P4OUT      |=  0x04;
+                    }
+    #endif
             } else {
-                // old sequence number, end the process
-#ifdef UART_HOP
-                if (app_vars.fSomethingToPrint==1) {
-                    formatStringToPrint();
-                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
-                }
-#endif
-                TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
-                TACCTL2  =  CCIE;
-                // send XOSCOFF strobe 
-                P4OUT      &= ~0x04;
-                U0TXBUF     = CC2420_SXOSCOFF;
-                while ((IFG1 & URXIFG0)==0);
-                IFG1       &= ~URXIFG0;
-                P4OUT      |=  0x04;
-                }
-#endif
+#ifdef LOCAL_SETUP
+                if (rxpkt_len!=FRAME_DATA_LEN && rxpkt_len!=FRAME_DATA_LEN) {
+                    // rxfifo have been flushed previous endofframe
+                    if (app_vars.fTurnOSCOffAtNextEndOfFrame==1){
+                        if (app_vars.my_addr==0x02){
+                              TACCR2   =  LIGHT_SAMPLE_PERIOD                            - \
+                                          HOP1_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET       - \
+                                          DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION +\
+                                          timestamp_timerA;
+                        } else {
+                            if (app_vars.my_addr==0x03){
+                                TACCR2   =  LIGHT_SAMPLE_PERIOD                            - \
+                                            HOP2_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET       - \
+                                            DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION +\
+                                            timestamp_timerA;
+                            }
+                        }
+                        TACCTL2  =  CCIE;
+                        // send XOSCOFF strobe 
+                        P4OUT      &= ~0x04;
+                        U0TXBUF     = CC2420_SXOSCOFF;
+                        while ((IFG1 & URXIFG0)==0);
+                        IFG1       &= ~URXIFG0;
+                        P4OUT      |=  0x04;
+                        P6OUT &= ~0x80;
+                        app_vars.fTurnOSCOffAtNextEndOfFrame=0;
                     }
                 }
+            }
+        }
+#endif
+    }
 }
 
 #ifdef UART_HOP

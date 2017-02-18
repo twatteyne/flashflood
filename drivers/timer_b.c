@@ -64,9 +64,6 @@ __interrupt void TIMERB1_ISR (void) {
    if (tbiv_local==0x0004){
         // CCR2 compare fired
        
-#ifdef ENABLE_DEBUGPINS
-        P6OUT |=  0x80; // P6.7
-#endif
         // send TXON strobe
         
         P4OUT     &= ~0x04;
@@ -78,9 +75,6 @@ __interrupt void TIMERB1_ISR (void) {
         TBCCR2   =  0;
         TBCCTL2 &= ~CCIE;
         
-#ifdef ENABLE_DEBUGPINS
-        P6OUT &= ~0x80; // P6.7
-#endif
    } else {
        if (tbiv_local==0x0002){
             // CCR1 capture triggered (SFD pin toggled)
