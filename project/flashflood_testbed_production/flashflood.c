@@ -185,10 +185,10 @@ int main(void) {
     
 #ifdef ENABLE_DEBUGPINS
     // debugpins
-    P3DIR    |=  0x10;                           // [P3.4]
-    P6DIR    |=  0x40;                           // [P6.6]
-    P2DIR    |=  0x40;                           // [P2.6]
-    P3DIR    |=  0x20;                           // [P3.5]
+    P3DIR    |=  0x10;                           // [P3.4] timerAisr
+    P6DIR    |=  0x40;                           // [P6.6] timerBisr
+    P2DIR    |=  0x40;                           // [P2.6] calibration
+    P3DIR    |=  0x20;                           // [P3.5] sfd
     DEBUGPIN_RADIO_INIT;
 #endif
     
@@ -233,7 +233,9 @@ int main(void) {
     timer_b_setEndFrameCb(timer_b_cb_endFrame);
     
     // ADC
-    adc_init();
+    if (app_vars.myId==ADDR_SENSING_NODE) {
+        adc_init();
+    }
     
     //==== switch radio on
     
@@ -376,7 +378,7 @@ void timera_ccr2_compare_cb(void) {
             
             app_vars.light_state  = 1;
 #ifdef LIGHTPIN_ALLMOTES
-            DEBUGPIN_LIGHT_HIGH;
+            DEBUGPIN_LIGHT_HIGH; // at sensing node
 #endif
 #ifdef ENABLE_LEDS
             LED_LIGHT_ON;
@@ -386,7 +388,7 @@ void timera_ccr2_compare_cb(void) {
             
             app_vars.light_state  = 0;
 #ifdef LIGHTPIN_ALLMOTES
-            DEBUGPIN_LIGHT_LOW;
+            DEBUGPIN_LIGHT_LOW; // at sensing node
 #endif
 #ifdef ENABLE_LEDS
             LED_LIGHT_OFF;
@@ -545,12 +547,12 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
         ) {
             // wiggle light pin
             if (rx_light==1){
-                DEBUGPIN_LIGHT_HIGH;
+                DEBUGPIN_LIGHT_HIGH; // at sink node
 #ifdef ENABLE_LEDS
                 LED_LIGHT_ON;
 #endif
             } else {
-                DEBUGPIN_LIGHT_LOW;
+                DEBUGPIN_LIGHT_LOW; // at sink node
 #ifdef ENABLE_LEDS
                 LED_LIGHT_OFF;
 #endif
