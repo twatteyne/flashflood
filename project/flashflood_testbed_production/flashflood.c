@@ -62,8 +62,6 @@
 #define FRAME_ACK_FCF0            0x02
 #define FRAME_ACK_FCF1            0x00
 
-#define CHANNEL                   26
-
 // LEDs
 #define LED_LIGHT_INIT            P5DIR |=  0x40; // P5.6
 #define LED_LIGHT_ON              P5OUT &= ~0x40;
@@ -88,7 +86,6 @@ typedef struct {
     uint8_t             dataFrameTx[FRAME_DATA_LEN];
     
     uint8_t             myId;
-    uint8_t             current_seq;
     uint8_t             fTurnOSCOffAtNextEndOfFrame;
 #ifdef UART_HOP
     uint8_t             fSomethingToPrint;
@@ -97,6 +94,7 @@ typedef struct {
     uint8_t             nextIndexToPrint;
 #endif
     uint8_t             my_addr;
+    uint8_t             current_seq;
     uint16_t            retransmitDelaySubticks;
     uint16_t            lastTimestamp;
     
@@ -106,6 +104,7 @@ typedef struct {
     uint8_t             cc2420_shortadr[2];
     uint8_t             cc2420_panid[2];
     uint8_t             cc2420_ieeeadr[16];
+    uint8_t             hopping_sequence[16];
 } app_vars_t;
 
 app_vars_t app_vars;
@@ -130,6 +129,23 @@ int main(void) {
     
     memset(&app_vars,0,sizeof(app_vars_t));
     memset(&eui64[0],0,8);
+    
+    app_vars.hopping_sequence[0]  = 11;
+    app_vars.hopping_sequence[1]  = 12;
+    app_vars.hopping_sequence[2]  = 13;
+    app_vars.hopping_sequence[3]  = 14;
+    app_vars.hopping_sequence[4]  = 15;
+    app_vars.hopping_sequence[5]  = 16;
+    app_vars.hopping_sequence[6]  = 17;
+    app_vars.hopping_sequence[7]  = 18;
+    app_vars.hopping_sequence[8]  = 19;
+    app_vars.hopping_sequence[9]  = 20;
+    app_vars.hopping_sequence[10] = 21;
+    app_vars.hopping_sequence[11] = 22;
+    app_vars.hopping_sequence[12] = 23;
+    app_vars.hopping_sequence[13] = 24;
+    app_vars.hopping_sequence[14] = 25;
+    app_vars.hopping_sequence[15] = 26;
     
     //===== fire up board
     
@@ -337,7 +353,7 @@ int main(void) {
     radio_loadPacket(app_vars.dataFrameTx,FRAME_DATA_LEN);
     
     //==== switch radio in RX mode
-    radio_setFrequency(CHANNEL);
+    radio_setFrequency(app_vars.hopping_sequence[app_vars.current_seq]); // all motes, when booted
     radio_rxNow();
     
     while (1);
@@ -408,12 +424,12 @@ void timera_ccr2_compare_cb(void) {
 #endif
         }
         
-        // increment sequence number
-        app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
-        
 #ifdef ENABLE_DEBUGPINS
         DEBUGPIN_RADIO_HIGH; // at sending node, after sampling light
 #endif
+        
+        // configure frequency
+        radio_setFrequency(app_vars.hopping_sequence[app_vars.current_seq]); // sensing node
         
         // turn on oscillator
         P4OUT          &= ~0x04;
@@ -453,6 +469,9 @@ void timera_ccr2_compare_cb(void) {
         // schedule to turn off radio when done sending
         app_vars.fTurnOSCOffAtNextEndOfFrame = 1;
         
+        // increment sequence number, ready for next active period
+        app_vars.current_seq = (app_vars.current_seq+1)%16; // at sensing node
+        
         // re-arm TimerA CCR2 (same period)
         TACCR2          =  TACCR2+LIGHT_SAMPLE_PERIOD;
         TACCTL2         =  CCIE;
@@ -463,6 +482,9 @@ void timera_ccr2_compare_cb(void) {
 #ifdef ENABLE_DEBUGPINS
         DEBUGPIN_RADIO_HIGH; // at not-sensing node
 #endif
+        
+        // configure frequency
+        radio_setFrequency(app_vars.hopping_sequence[app_vars.current_seq]); // normal nodes (and sink)
         
         // turn on oscillator
         P4OUT      &= ~0x04;
@@ -658,6 +680,9 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
 #endif
     }
     
+    // record seq
+    app_vars.current_seq = rx_seq;
+    
     //=== decide to relay or not
     
     if        (app_vars.myId==ADDR_SINK_NODE){
@@ -756,6 +781,9 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             app_vars.fTurnOSCOffAtNextEndOfFrame=1;
         }
     }
+    
+    // increment sequence number, ready for next active period
+    app_vars.current_seq = (app_vars.current_seq+1)%16;
     
     // rearm Timer A CCR2 to wake up at next cycle
     newCompareValue          = timestamp_timerA;
