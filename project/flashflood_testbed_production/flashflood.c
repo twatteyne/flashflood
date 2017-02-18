@@ -659,9 +659,6 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             }
 #endif
             
-#ifdef ENABLE_DEBUGPINS
-            P3OUT ^= 0x20; // P3.5
-#endif
             // if I get here, I'm going to relay
             
 #ifdef UART_HOP

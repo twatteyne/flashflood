@@ -81,10 +81,20 @@ __interrupt void TIMERB1_ISR (void) {
            
             if (TBCCTL1 & CCI) {
                  // SFD pin went high
+                
+#ifdef ENABLE_DEBUGPINS
+                 P3OUT |=  0x20; // P3.5
+#endif
+                 
                  timer_b_vars.f_SFDreceived = 1;
+                 
             } else {
                  // SFD pin went low
                 
+#ifdef ENABLE_DEBUGPINS
+                 P3OUT &= ~0x20; // P3.5
+#endif
+                 
                  if (timer_b_vars.f_SFDreceived == 1) {
                      timer_b_vars.endFrameCb(timestamp_timerA,TBCCR1);
                      timer_b_vars.f_SFDreceived = 0;
