@@ -31,6 +31,7 @@
 
 // light sensor
 #define LIGHT_SAMPLE_PERIOD       655   // @32kHz, 100=3ms
+#define DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION 42 // @32kHz, 42=1.27ms
 #define LIGHT_THRESHOLD           400
 #define LIGHT_HYSTERESIS          100
 
@@ -349,7 +350,8 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
 
 // sample light sensor
 void timera_ccr2_compare_cb(void) {
-    
+    uint8_t rxByte;  
+  
     if (app_vars.myId==ADDR_SENSING_NODE){
         
         app_vars.light_reading = adc_read_light();
@@ -406,6 +408,35 @@ void timera_ccr2_compare_cb(void) {
         // re-arm
         TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
+    } else {
+        // turn on oscillator
+        P4OUT      &= ~0x04;
+        U0TXBUF     = CC2420_SXOSCON;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1       &= ~URXIFG0;
+        // wait until oscillator is on. status byte returned: bit 6 xosc16m_stable
+        do {
+            U0TXBUF     = CC2420_SNOP;
+            while ((IFG1 & URXIFG0)==0);
+            IFG1       &= ~URXIFG0;
+            rxByte      = U0RXBUF;
+        } while ((rxByte & 0x40) == 0);
+        // change to rx state
+        U0TXBUF     = CC2420_SRXON;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1       &= ~URXIFG0;
+        // flush rxfifo
+        U0TXBUF     = CC2420_SFLUSHRX;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1       &= ~URXIFG0;
+        // wait  until radio really listen. status byte returned: bit 1: RSSI_VALID
+        do {
+            U0TXBUF     = CC2420_SNOP;
+            while ((IFG1 & URXIFG0)==0);
+            IFG1       &= ~URXIFG0;
+            rxByte      = U0RXBUF;
+        } while (rxByte & 0x02==0);
+        P4OUT      |=  0x04;
     }
 }
 
@@ -497,7 +528,16 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 // it's a new sequence number
                 
                 // update current_seq
-                app_vars.current_seq = rx_seq;
+                app_vars.current_seq                = rx_seq;
+                // turn off oscillator right now and turn on later
+                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION;
+                TACCTL2  =  CCIE;
+                // send XOSCOFF strobe 
+                P4OUT      &= ~0x04;
+                U0TXBUF     = CC2420_SXOSCOFF;
+                while ((IFG1 & URXIFG0)==0);
+                IFG1       &= ~URXIFG0;
+                P4OUT      |=  0x04;
             }
         }
     } else {
@@ -553,6 +593,14 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
                 }
 #endif
+                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION;
+                TACCTL2  =  CCIE;
+                // send XOSCOFF strobe 
+                P4OUT      &= ~0x04;
+                U0TXBUF     = CC2420_SXOSCOFF;
+                while ((IFG1 & URXIFG0)==0);
+                IFG1       &= ~URXIFG0;
+                P4OUT      |=  0x04;
                 return;
             }
 #endif
@@ -563,9 +611,9 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             // if I get here, I'm going to relay
             
 #ifdef UART_HOP
-           // store DSN field to print over UART
-           app_vars.dsnToPrint = rxpkt_dsn;
-           app_vars.fSomethingToPrint = 1;
+            // store DSN field to print over UART
+            app_vars.dsnToPrint = rxpkt_dsn;
+            app_vars.fSomethingToPrint = 1;
 #endif  
             
             // the process of loading the relayed packet take approx. 183us
@@ -642,7 +690,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             ){
                 
                 // update current_seq
-                app_vars.current_seq = rx_seq;
+                app_vars.current_seq                = rx_seq;
             } else {
                 // old sequence number, end the process
 #ifdef UART_HOP
@@ -651,7 +699,15 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
                 }
 #endif
-            }
+                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION;
+                TACCTL2  =  CCIE;
+                // send XOSCOFF strobe 
+                P4OUT      &= ~0x04;
+                U0TXBUF     = CC2420_SXOSCOFF;
+                while ((IFG1 & URXIFG0)==0);
+                IFG1       &= ~URXIFG0;
+                P4OUT      |=  0x04;
+                }
 #endif
         }
     }
