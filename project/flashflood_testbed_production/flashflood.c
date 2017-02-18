@@ -605,6 +605,9 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     uint8_t        rx_seq;
     // value of the FSCTRL register (1st byte only)
     uint16_t       newCompareValue;
+    uint8_t        crcByte;
+    uint8_t        i;
+    uint8_t        reg_FSCTRL_byte0;
     
     // determine when I've just receive a packet for me
     rx_for_me = (P1IN & 0x01);
@@ -684,6 +687,14 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     IFG1          &= ~URXIFG0; 
     rxpkt_dsn      =  U0RXBUF;
     
+    for (i=3;i<rxpkt_len;i++) {
+        // read rest of bytes, we only care about last one (contains CRC)
+        U0TXBUF    =  0x00;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1      &= ~URXIFG0; 
+        crcByte    =  U0RXBUF;
+    }
+    
     //>>>>> CS high
     P4OUT         |=  0x04;
     
@@ -699,7 +710,19 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     
     //===== handle packet
     
-    // sanity check
+    // check CRC
+    if ((crcByte&0x80)==0) {
+        // abort, CRC wrong
+#ifdef ENABLE_DEBUGPINS
+        DEBUGPIN_RXFORME_HIGH;
+        DEBUGPIN_RXFORME_LOW;
+        DEBUGPIN_RXFORME_HIGH;
+        DEBUGPIN_RXFORME_LOW;
+#endif
+        return;
+    }
+    
+    // check packet format
     if (
             (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1  && rx_for_me==1) ||
             (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1 && rx_for_me==1)
@@ -822,7 +845,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             
             /*
             // Per our analysis, waiting for the calibration takes 56us.
-            // The calibration is done 190us after the end of frame.
+            // The calibration is done 217us after the end of frame.
             // Since the offet is 7 ticks (213.5us), we are confident the radio
             // is calibrated when TimerB expires.
             // wait for radio calibration to be done
