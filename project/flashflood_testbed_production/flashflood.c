@@ -16,18 +16,18 @@
 // mote addresses
 #ifdef LOCAL_SETUP
     #ifdef LINEAR_TOPOLOGY
-        #define ADDR_SENSING_NODE 0xdd // <-- logic analyzer       
+        #define ADDR_SENSING_NODE 0xdd // <-- logic analyzer
         #define ADDR_HOP1_NODE    0x0f
         #define ADDR_HOP2_NODE    0x16 // <-- logic analyzer
         #define ADDR_HOP3_NODE    0x2b
         #define ADDR_HOP4_NODE    0x05
         #define ADDR_SINK_NODE    0x57 // <-- logic analyzer
     #else
-        #define ADDR_SENSING_NODE 0xdd
+        #define ADDR_SENSING_NODE 0xdd // <-- logic analyzer
         #define ADDR_HOP1_A_NODE  0x0f
-        #define ADDR_HOP1_B_NODE  0x16
+        #define ADDR_HOP1_B_NODE  0x16 // <-- logic analyzer
         #define ADDR_HOP2_A_NODE  0x2b
-        #define ADDR_HOP2_B_NODE  0x57
+        #define ADDR_HOP2_B_NODE  0x57 // <-- logic analyzer
         #define ADDR_SINK_NODE    0x05
     #endif
     #define PANID                 0xc0ca
