@@ -1018,6 +1018,12 @@
     <name>$PROJ_DIR$\..\..\drivers\cc2420.h</name>
   </file>
   <file>
+    <name>$PROJ_DIR$\..\..\drivers\eui64.c</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\..\..\drivers\eui64.h</name>
+  </file>
+  <file>
     <name>$PROJ_DIR$\..\..\inc\opendefs.h</name>
   </file>
   <file>
@@ -1040,6 +1046,12 @@
   </file>
   <file>
     <name>$PROJ_DIR$\..\..\drivers\timer_a.h</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\..\..\drivers\timer_b.c</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\..\..\drivers\timer_b.h</name>
   </file>
 </project>
 
