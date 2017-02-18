@@ -177,6 +177,7 @@
           <state>UART_HOP</state>
           <state>ENABLE_LEDS</state>
           <state>ENABLE_DEBUGPINS</state>
+          <state>USE_IEEEE154_FREQUENCIES</state>
         </option>
         <option>
           <name>CCPreprocFile</name>

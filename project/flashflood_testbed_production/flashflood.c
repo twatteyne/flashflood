@@ -138,6 +138,7 @@ int main(void) {
     memset(&app_vars,0,sizeof(app_vars_t));
     memset(&eui64[0],0,8);
     
+#ifdef USE_IEEEE154_FREQUENCIES
     // channel hopping on IEEE802.15.4 channels
     app_vars.hopping_sequence[0x00] = 377; // channel 15
     app_vars.hopping_sequence[0x01] = 402; // channel 20
@@ -155,8 +156,7 @@ int main(void) {
     app_vars.hopping_sequence[0x0d] = 402; // channel 20
     app_vars.hopping_sequence[0x0e] = 427; // channel 25
     app_vars.hopping_sequence[0x0f] = 432; // channel 26 ===
-    
-    /*
+#else
     // channel hopping outside of IEEE802.15.4 channels
     app_vars.hopping_sequence[0x00] = FREQUENCY_1;
     app_vars.hopping_sequence[0x01] = FREQUENCY_2;
@@ -174,7 +174,7 @@ int main(void) {
     app_vars.hopping_sequence[0x0d] = FREQUENCY_2;
     app_vars.hopping_sequence[0x0e] = FREQUENCY_3;
     app_vars.hopping_sequence[0x0f] = FREQUENCY_4; // ===
-    */
+#endif
     
     //===== fire up board
     
