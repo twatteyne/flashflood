@@ -53,7 +53,7 @@
 #define LIGHT_THRESHOLD           400
 #define LIGHT_HYSTERESIS          100
 
-#define RETRANSMIT_DELAY_TICKS    7                             // 9@32768Hz = 275us, between end of ACK and start of DATA
+#define RETRANSMIT_DELAY_TICKS    7                             // 7@32768Hz = 2135us, between end of ACK and start of DATA
 #define CALIBRATION_PERIOD_TICKS  (RETRANSMIT_DELAY_TICKS<<5)   // RETRANSMIT_DELAY<<5
 
 // txfifo dsn address (0x003)
@@ -83,7 +83,6 @@
 #define DEBUGPIN_RXFORME_INIT     P2DIR |=  0x40; // P2.6
 #define DEBUGPIN_RXFORME_HIGH     P2OUT |=  0x40;
 #define DEBUGPIN_RXFORME_LOW      P2OUT &= ~0x40;
-#define DEBUGPIN_RXFORME_TOGGLE   P2OUT ^=  0x40;
 
 // frequencies
 
@@ -657,8 +656,6 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     
     //===== read rx packet from radio
     
-    DEBUGPIN_RXFORME_TOGGLE;
-    
     //>>>>> CS low
     P4OUT         &= ~0x04;
     
@@ -701,8 +698,6 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     P4OUT         |=  0x04;
     
     //===== handle packet
-    
-    DEBUGPIN_RXFORME_TOGGLE;
     
     // sanity check
     if (
@@ -796,8 +791,6 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             
             //===== prepare radio to relay
             
-            DEBUGPIN_RXFORME_TOGGLE;
-            
             //>>>>> CS low
             P4OUT      &= ~0x04;
             
@@ -854,7 +847,6 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             
             } while(reg_FSCTRL_byte0 & 0x10);
             */
-            DEBUGPIN_RXFORME_TOGGLE;
             
             // Timer B will fire and issue the command to send the packet
             // nothing to do here
@@ -873,8 +865,6 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     // increment sequence number, ready for next active period
     app_vars.current_seq = (app_vars.current_seq+1)&0x0f;
     
-    DEBUGPIN_RXFORME_TOGGLE;
-    
     // rearm Timer A CCR2 to wake up at next cycle
     newCompareValue          = timestamp_timerA;
     newCompareValue         += LIGHT_SAMPLE_PERIOD;
@@ -889,8 +879,6 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     
     TACCR2   =  newCompareValue;
     TACCTL2  =  CCIE;
-    
-    DEBUGPIN_RXFORME_TOGGLE;
 }
 
 #ifdef UART_HOP
