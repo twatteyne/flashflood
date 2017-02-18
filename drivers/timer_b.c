@@ -56,6 +56,7 @@ void timer_b_setEndFrameCb(timer_b_capture_cbt cb) {
 #pragma vector = TIMERB1_VECTOR
 __interrupt void TIMERB1_ISR (void) {
    uint16_t tbiv_local;
+   uint16_t timestamp_timerA = TAR;
    tbiv_local = TBIV;
 #ifdef ENABLE_DEBUGPINS
    P6OUT |=  0x40; // P6.6
@@ -91,7 +92,7 @@ __interrupt void TIMERB1_ISR (void) {
                  // SFD pin went low
                 
                  if (timer_b_vars.f_SFDreceived == 1) {
-                     timer_b_vars.endFrameCb(TBCCR1);
+                     timer_b_vars.endFrameCb(timestamp_timerA,TBCCR1);
                      timer_b_vars.f_SFDreceived = 0;
                  }
                  TBCCTL1 &= ~COV;

@@ -100,7 +100,7 @@ app_vars_t app_vars;
 
 void timera_ccr2_compare_cb(void);
 void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp);
-void timer_b_cb_endFrame(uint16_t timestamp);
+void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB);
 #ifdef UART_HOP
 void formatStringToPrint();
 #endif
@@ -408,9 +408,12 @@ void timera_ccr2_compare_cb(void) {
         P4OUT      |=  0x04;
         
         // re-arm
-        TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
+        TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD;
         TACCTL2  =  CCIE;
     } else {
+#ifdef ENABLE_DEBUGPINS
+        P6OUT^=0x80;
+#endif
         // turn on oscillator
         P4OUT      &= ~0x04;
         U0TXBUF     = CC2420_SXOSCON;
@@ -439,11 +442,14 @@ void timera_ccr2_compare_cb(void) {
             rxByte      = U0RXBUF;
         } while (rxByte & 0x02==0);
         P4OUT      |=  0x04;
+        
+        TACCR2   =  0;
+        TACCTL2  =  ~CCIE;
     }
 }
 
 // done receiving a packet
-void timer_b_cb_endFrame(uint16_t timestamp){
+void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     // raw packet received
     uint8_t        rxpkt_len;
     uint8_t        rxpkt_fcf0;
@@ -532,7 +538,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 // update current_seq
                 app_vars.current_seq                = rx_seq;
                 // turn off oscillator right now and turn on later
-                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
+                TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                 TACCTL2  =  CCIE;
                 // send XOSCOFF strobe 
                 P4OUT      &= ~0x04;
@@ -595,7 +601,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
                 }
 #endif
-                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
+                TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                 TACCTL2  =  CCIE;
                 // send XOSCOFF strobe 
                 P4OUT      &= ~0x04;
@@ -619,7 +625,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
 #endif  
             
             // the process of loading the relayed packet take approx. 183us
-            TBCCR2      = timestamp+app_vars.retransmitDelaySubticks;
+            TBCCR2      = timestamp_timerB+app_vars.retransmitDelaySubticks;
             TBCCTL2     = CCIE;
             
             //===== prepare radio to relay
@@ -701,7 +707,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
                 }
 #endif
-                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
+                TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                 TACCTL2  =  CCIE;
                 // send XOSCOFF strobe 
                 P4OUT      &= ~0x04;
@@ -711,8 +717,8 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 P4OUT      |=  0x04;
                 }
 #endif
-        }
-    }
+                    }
+                }
 }
 
 #ifdef UART_HOP

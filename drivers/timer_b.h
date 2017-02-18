@@ -10,7 +10,7 @@
 //=========================== typedef =========================================
 
 typedef void (*timer_b_compare_cbt)(void);
-typedef void (*timer_b_capture_cbt)(uint16_t timestamp);
+typedef void (*timer_b_capture_cbt)(uint16_t timestamp_timerA, uint16_t timestamp_timerB);
 
 //=========================== variables =======================================
 
