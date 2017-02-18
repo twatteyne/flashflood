@@ -38,7 +38,7 @@ typedef enum {
 
 //=========================== prototypes ======================================
 // RF admin
-void     radio_setFrequency(uint8_t frequency);
+void     radio_setFrequency(uint16_t frequency);
 void     radio_oscillatorOn(void);
 void     radio_oscillatorOff(void);
 void     radio_rfOff(void);

@@ -24,15 +24,13 @@ radio_vars_t radio_vars;
 
 //===== RF admin
 
-void radio_setFrequency(uint8_t frequency) {
+void radio_setFrequency(uint16_t frequency) {
    cc2420_FSCTRL_reg_t cc2420_FSCTRL_reg;
    
    // change state
    radio_vars.state = RADIOSTATE_SETTING_FREQUENCY;
    
-   cc2420_FSCTRL_reg.FREQ         = frequency-11;
-   cc2420_FSCTRL_reg.FREQ        *= 5;
-   cc2420_FSCTRL_reg.FREQ        += 357;
+   cc2420_FSCTRL_reg.FREQ         = frequency;
    cc2420_FSCTRL_reg.LOCK_STATUS  = 0;
    cc2420_FSCTRL_reg.LOCK_LENGTH  = 0;
    cc2420_FSCTRL_reg.CAL_RUNNING  = 0;

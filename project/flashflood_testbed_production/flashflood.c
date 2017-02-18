@@ -78,6 +78,14 @@
 #define DEBUGPIN_RXFORME_HIGH     P2OUT |=  0x40;
 #define DEBUGPIN_RXFORME_LOW      P2OUT &= ~0x40;
 
+// frequencies
+
+// (channel-11)*5+357
+#define FREQUENCY_1 379 // 359 = 2407 MHz
+#define FREQUENCY_2 379 // 379 = 2427 MHz
+#define FREQUENCY_3 404 // 404 = 2452 MHz
+#define FREQUENCY_4 429 // 429 = 2477 MHz
+
 //=========================== statics =========================================
 
 //=========================== variables =======================================
@@ -104,7 +112,7 @@ typedef struct {
     uint8_t             cc2420_shortadr[2];
     uint8_t             cc2420_panid[2];
     uint8_t             cc2420_ieeeadr[16];
-    uint8_t             hopping_sequence[16];
+    uint16_t            hopping_sequence[16];
 } app_vars_t;
 
 app_vars_t app_vars;
@@ -130,22 +138,43 @@ int main(void) {
     memset(&app_vars,0,sizeof(app_vars_t));
     memset(&eui64[0],0,8);
     
-    app_vars.hopping_sequence[0x00] = 15;
-    app_vars.hopping_sequence[0x01] = 20;
-    app_vars.hopping_sequence[0x02] = 25;
-    app_vars.hopping_sequence[0x03] = 26; //===
-    app_vars.hopping_sequence[0x04] = 15;
-    app_vars.hopping_sequence[0x05] = 20;
-    app_vars.hopping_sequence[0x06] = 25;
-    app_vars.hopping_sequence[0x07] = 26; //===
-    app_vars.hopping_sequence[0x08] = 15;
-    app_vars.hopping_sequence[0x09] = 20;
-    app_vars.hopping_sequence[0x0a] = 25;
-    app_vars.hopping_sequence[0x0b] = 26; //===
-    app_vars.hopping_sequence[0x0c] = 15;
-    app_vars.hopping_sequence[0x0d] = 20;
-    app_vars.hopping_sequence[0x0e] = 25;
-    app_vars.hopping_sequence[0x0f] = 26; //===
+    // channel hopping on IEEE802.15.4 channels
+    app_vars.hopping_sequence[0x00] = 377; // channel 15
+    app_vars.hopping_sequence[0x01] = 402; // channel 20
+    app_vars.hopping_sequence[0x02] = 427; // channel 25
+    app_vars.hopping_sequence[0x03] = 432; // channel 26 ===
+    app_vars.hopping_sequence[0x04] = 377; // channel 15
+    app_vars.hopping_sequence[0x05] = 402; // channel 20
+    app_vars.hopping_sequence[0x06] = 427; // channel 25
+    app_vars.hopping_sequence[0x07] = 432; // channel 26 ===
+    app_vars.hopping_sequence[0x08] = 377; // channel 15
+    app_vars.hopping_sequence[0x09] = 402; // channel 20
+    app_vars.hopping_sequence[0x0a] = 427; // channel 25
+    app_vars.hopping_sequence[0x0b] = 432; // channel 26 ===
+    app_vars.hopping_sequence[0x0c] = 377; // channel 15
+    app_vars.hopping_sequence[0x0d] = 402; // channel 20
+    app_vars.hopping_sequence[0x0e] = 427; // channel 25
+    app_vars.hopping_sequence[0x0f] = 432; // channel 26 ===
+    
+    /*
+    // channel hopping outside of IEEE802.15.4 channels
+    app_vars.hopping_sequence[0x00] = FREQUENCY_1;
+    app_vars.hopping_sequence[0x01] = FREQUENCY_2;
+    app_vars.hopping_sequence[0x02] = FREQUENCY_3;
+    app_vars.hopping_sequence[0x03] = FREQUENCY_4; // ===
+    app_vars.hopping_sequence[0x04] = FREQUENCY_1;
+    app_vars.hopping_sequence[0x05] = FREQUENCY_2;
+    app_vars.hopping_sequence[0x06] = FREQUENCY_3;
+    app_vars.hopping_sequence[0x07] = FREQUENCY_4; // ===
+    app_vars.hopping_sequence[0x08] = FREQUENCY_1;
+    app_vars.hopping_sequence[0x09] = FREQUENCY_2;
+    app_vars.hopping_sequence[0x0a] = FREQUENCY_3;
+    app_vars.hopping_sequence[0x0b] = FREQUENCY_4; // ===
+    app_vars.hopping_sequence[0x0c] = FREQUENCY_1;
+    app_vars.hopping_sequence[0x0d] = FREQUENCY_2;
+    app_vars.hopping_sequence[0x0e] = FREQUENCY_3;
+    app_vars.hopping_sequence[0x0f] = FREQUENCY_4; // ===
+    */
     
     //===== fire up board
     
