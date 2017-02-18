@@ -709,6 +709,13 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     rx_hop         = ((rxpkt_dsn&0x70)>>4);
     rx_seq         = ((rxpkt_dsn&0x0f)>>0); 
     
+#ifdef LOCAL_SETUP
+    // in local only: filter ACKs by hop count as there is no address field
+    if (rxpkt_len==FRAME_ACK_LEN && rx_hop!=(app_vars.my_addr-3)) {
+        return;
+    }
+#endif
+    
 #ifdef UART_HOP
     // store DSN field to print over UART
     app_vars.dsnToPrint = rxpkt_dsn;
