@@ -183,7 +183,7 @@ ACK
 | P6.6 | `timerB`       | debugpin  | high during Timer B ISR |
 | P2.6 | `calibration`  | debugpin  | toggle at beginning of calibration |
 | P3.5 | `retransmit`   | debugpin  | toggle when mote decides to retransmit (after ACK) |
-| P6.7 | `oscillator`   | debugpin  | high during radio's oscillator on |
+| P6.7 | `radio`        | debugpin  | high during radio's oscillator on |
 
 ## leds
 

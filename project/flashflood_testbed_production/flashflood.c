@@ -72,6 +72,10 @@
 #define DEBUGPIN_LIGHT_HIGH       P2OUT |=  0x08;
 #define DEBUGPIN_LIGHT_LOW        P2OUT &= ~0x08;
 
+#define DEBUGPIN_RADIO_INIT       P6DIR |=  0x80; // P6.7
+#define DEBUGPIN_RADIO_HIGH       P6OUT |=  0x80;
+#define DEBUGPIN_RADIO_LOW        P6OUT &= ~0x80;
+
 //=========================== statics =========================================
 
 //=========================== variables =======================================
@@ -186,7 +190,7 @@ int main(void) {
     P6DIR    |=  0x40;                           // [P6.6]
     P2DIR    |=  0x40;                           // [P2.6]
     P3DIR    |=  0x20;                           // [P3.5]
-    P6DIR    |=  0x80;                           // [P6.7]
+    DEBUGPIN_RADIO_INIT;
 #endif
     
 #ifdef UART_HOP
@@ -393,7 +397,7 @@ void timera_ccr2_compare_cb(void) {
         app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
         
 #ifdef ENABLE_DEBUGPINS
-        P6OUT |= 0x80;
+        DEBUGPIN_RADIO_HIGH;
 #endif
         // turn on oscillator
         P4OUT      &= ~0x04;
@@ -436,7 +440,7 @@ void timera_ccr2_compare_cb(void) {
         TACCTL2  =  CCIE;
     } else {
 #ifdef ENABLE_DEBUGPINS
-        P6OUT |= 0x80;
+        DEBUGPIN_RADIO_HIGH;
 #endif
         // turn on oscillator
         P4OUT      &= ~0x04;
@@ -608,7 +612,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                 IFG1       &= ~URXIFG0;
                 P4OUT      |=  0x04;
 #ifdef ENABLE_DEBUGPINS
-                P6OUT      &= ~0x80;
+                DEBUGPIN_RADIO_LOW;
 #endif
             }
             
@@ -786,7 +790,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                         IFG1       &= ~URXIFG0;
                         P4OUT      |=  0x04;
 #ifdef ENABLE_DEBUGPINS
-                        P6OUT &= ~0x80;
+                        DEBUGPIN_RADIO_LOW;
 #endif
                         app_vars.fTurnOSCOffAtNextEndOfFrame=0;
                     }
