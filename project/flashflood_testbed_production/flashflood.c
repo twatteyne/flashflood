@@ -24,15 +24,17 @@
     #define ADDR_HOP2_B_NODE      0x57
 
     #define ADDR_SINK_NODE        0x05
+    #define PANID                 0xc0ca
 #else
     #define ADDR_SENSING_NODE     0xa0
     #define ADDR_SINK_NODE        0xab
+    #define PANID                 0xc01a
 #endif
 
 // light sensor
-#define LIGHT_SAMPLE_PERIOD       655   // @32kHz, 655=20ms
-#define DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION 42 // @32kHz, 42=1.27ms
-#define RADIO_STARTUP_DURATION    300  // 1ms
+#define LIGHT_SAMPLE_PERIOD       655  // @32kHz, 655=20.00ms
+#define ONE_HOP_LATENCY            42  // @32kHz,  42= 1.27ms
+#define RADIO_STARTUP_DURATION     30  // @32kHz,  30= 1.00ms
 
 #ifdef LOCAL_SETUP
     #define SENSING_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET 29+5 // turn on oscillator a little later than hop 1, so hop 1 could hear the packet
@@ -87,10 +89,7 @@ typedef struct {
     
     uint8_t             myId;
     uint8_t             current_seq;
-#ifdef LOCAL_SETUP
-    uint8_t             my_hop;
     uint8_t             fTurnOSCOffAtNextEndOfFrame;
-#endif
 #ifdef UART_HOP
     uint8_t             fSomethingToPrint;
     uint8_t             dsnToPrint;
@@ -115,7 +114,7 @@ app_vars_t app_vars;
 
 void timera_ccr2_compare_cb(void);
 void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp);
-void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_timerB);
+void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB);
 #ifdef UART_HOP
 void formatStringToPrint();
 #endif
@@ -127,6 +126,7 @@ int main(void) {
     uint8_t             eui64[8];
     volatile uint16_t   delay;
     cc2420_status_t     cc2420_status;
+    uint16_t            dest;
     
     memset(&app_vars,0,sizeof(app_vars_t));
     memset(&eui64[0],0,8);
@@ -166,17 +166,17 @@ int main(void) {
         default:
             break;
     }
-    app_vars.my_hop   = app_vars.my_addr-1;
 #else
     app_vars.my_addr  = 0x11;
 #endif
     for (i=0;i<2;i++){
         app_vars.cc2420_shortadr[i] = app_vars.my_addr;
-        app_vars.cc2420_panid[i]    = app_vars.my_addr;
     }
     for (i=0;i<8;i++){
         app_vars.cc2420_ieeeadr[i]  = app_vars.my_addr;
     }
+    app_vars.cc2420_panid[0]        = (uint8_t)((uint16_t)(PANID & 0x00ff)>>0);
+    app_vars.cc2420_panid[1]        = (uint8_t)((uint16_t)(PANID & 0xff00)>>8);
     
     //===== initialize peripherals
     
@@ -233,7 +233,7 @@ int main(void) {
     
     // Timer B
     timer_b_init();
-    timer_b_setEndFrameCb(timer_b_cb_endFrameForMe);
+    timer_b_setEndFrameCb(timer_b_cb_endFrame);
     
     // ADC
     if (app_vars.myId==ADDR_SENSING_NODE) {
@@ -317,18 +317,23 @@ int main(void) {
     cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,    &cc2420_status, &app_vars.cc2420_panid[0],    2);
     cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,  &cc2420_status, &app_vars.cc2420_ieeeadr[0],  8);
     
-    //==== create and load data frame (ACK generated automatically)
+    //==== create and load data frame
     
-    app_vars.dataFrameTx[0]       = FRAME_DATA_FCF0; // FCF0
-    app_vars.dataFrameTx[1]       = FRAME_DATA_FCF1; // FCF1
-    // DSN to be written before TX
-    for (i=3;i<7;i++){
+    // create
+    app_vars.dataFrameTx[0]       = FRAME_DATA_FCF0;                           // FCF
+    app_vars.dataFrameTx[1]       = FRAME_DATA_FCF1;                           //
+    app_vars.dataFrameTx[2]       = 0x00;                                      // DSN (to be overwritten)
+    app_vars.dataFrameTx[3]       = (uint8_t)((uint16_t)(PANID & 0x00ff)>>0);  // PANID
+    app_vars.dataFrameTx[4]       = (uint8_t)((uint16_t)(PANID & 0xff00)>>8);  //
 #ifdef LOCAL_SETUP
-        app_vars.dataFrameTx[i]   = app_vars.my_addr+1;
-#else 
-        app_vars.dataFrameTx[i]   = 0x11;
+    dest                          = app_vars.my_addr+1;
+#else
+    dest                          = app_vars.my_addr;
 #endif
-    }
+    app_vars.dataFrameTx[5]       = dest;                                      // dest
+    app_vars.dataFrameTx[6]       = dest;                                      //
+    
+    // load
     radio_loadPacket(app_vars.dataFrameTx,FRAME_DATA_LEN);
     
     //==== switch radio in RX mode
@@ -370,12 +375,14 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
     TACCTL1 =  CCIE;
 }
 
-// sample light sensor
+// sample light sensor for sensing node, start cycle for others
 void timera_ccr2_compare_cb(void) {
     uint8_t rxByte;  
     
     if (app_vars.myId==ADDR_SENSING_NODE){
+        // I'm the sensing node: sample and send
         
+        // read light value
         app_vars.light_reading = adc_read_light();
         
         // detect light state switches
@@ -401,54 +408,62 @@ void timera_ccr2_compare_cb(void) {
 #endif
         }
         
+        // increment sequence number
         app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
         
 #ifdef ENABLE_DEBUGPINS
         DEBUGPIN_RADIO_HIGH; // at sending node, after sampling light
 #endif
+        
         // turn on oscillator
-        P4OUT      &= ~0x04;
-        U0TXBUF     = CC2420_SXOSCON;
+        P4OUT          &= ~0x04;
+        U0TXBUF         =  CC2420_SXOSCON;
         while ((IFG1 & URXIFG0)==0);
-        IFG1       &= ~URXIFG0;
-        // wait until oscillator is on. status byte returned: bit 6 xosc16m_stable
+        IFG1           &= ~URXIFG0;
+        
+        // wait until oscillator is on (status byte returned: bit 6 xosc16m_stable)
         do {
             U0TXBUF     = CC2420_SNOP;
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
             rxByte      = U0RXBUF;
         } while ((rxByte & 0x40) == 0);
+        
         // write DSN to TXFIFO RAM 
-        P4OUT      &= ~0x04;
-        U0TXBUF     = WRITE_TXFIFO_DSN_BYTE0; // address[0] 0x03 | CC2420_FLAG_RAM 0x80
+        P4OUT          &= ~0x04;
+        U0TXBUF         = WRITE_TXFIFO_DSN_BYTE0; // address[0] 0x03 | CC2420_FLAG_RAM 0x80
         while ((IFG1 & URXIFG0)==0);
-        IFG1       &= ~URXIFG0;
-        U0TXBUF     = WRITE_TXFIFO_DSN_BYTE1; // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
+        IFG1           &= ~URXIFG0;
+        U0TXBUF         = WRITE_TXFIFO_DSN_BYTE1; // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
         while ((IFG1 & URXIFG0)==0);
-        IFG1       &= ~URXIFG0;
-#ifdef LOCAL_SETUP
-        U0TXBUF     = (app_vars.light_state<<7) | ((app_vars.my_hop+2)<<4) | app_vars.current_seq;
-#else
-        U0TXBUF     = (app_vars.light_state<<7) |                            app_vars.current_seq;
-#endif
+        IFG1           &= ~URXIFG0;
+        //                light                       hop        seq
+        U0TXBUF         = (app_vars.light_state<<7) | ((0)<<4) | app_vars.current_seq;
         while ((IFG1 & URXIFG0)==0);
-        IFG1       &= ~URXIFG0;
-        P4OUT      |=  0x04;
+        IFG1           &= ~URXIFG0;
+        P4OUT          |=  0x04;
         
         // send TXON strobe 
-        P4OUT      &= ~0x04;
-        U0TXBUF     = CC2420_STXON;
+        P4OUT          &= ~0x04;
+        U0TXBUF         = CC2420_STXON;
         while ((IFG1 & URXIFG0)==0);
-        IFG1       &= ~URXIFG0;
-        P4OUT      |=  0x04;
+        IFG1           &= ~URXIFG0;
+        P4OUT          |=  0x04;
         
-        // re-arm
-        TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD;
-        TACCTL2  =  CCIE;
+        // schedule to turn off radio when done sending
+        app_vars.fTurnOSCOffAtNextEndOfFrame = 1;
+        
+        // re-arm TimerA CCR2 (same period)
+        TACCR2          =  TACCR2+LIGHT_SAMPLE_PERIOD;
+        TACCTL2         =  CCIE;
+    
     } else {
+        // I'm a normal node (or sink): listen
+        
 #ifdef ENABLE_DEBUGPINS
         DEBUGPIN_RADIO_HIGH; // at not-sensing node
 #endif
+        
         // turn on oscillator
         P4OUT      &= ~0x04;
         U0TXBUF     = CC2420_SXOSCON;
@@ -461,14 +476,17 @@ void timera_ccr2_compare_cb(void) {
             IFG1       &= ~URXIFG0;
             rxByte      = U0RXBUF;
         } while ((rxByte & 0x40) == 0);
+        
         // change to rx state
         U0TXBUF     = CC2420_SRXON;
         while ((IFG1 & URXIFG0)==0);
         IFG1       &= ~URXIFG0;
+        
         // flush rxfifo
         U0TXBUF     = CC2420_SFLUSHRX;
         while ((IFG1 & URXIFG0)==0);
         IFG1       &= ~URXIFG0;
+        
         // wait  until radio really listen. status byte returned: bit 1: RSSI_VALID
         do {
             U0TXBUF     = CC2420_SNOP;
@@ -478,15 +496,16 @@ void timera_ccr2_compare_cb(void) {
         } while (rxByte & 0x02==0);
         P4OUT      |=  0x04;
         
+        // disable Timer A CCR2 (will be rearmed after receiving frame)
         TACCR2   =  0;
         TACCTL2  =  ~CCIE;
     }
 }
 
-// done receiving a packet for me
-// node: timer B only calls this if frame is really for me
-void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
+// done receiving an end-of-frame signal
+void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     // raw packet received
+    uint8_t        rx_for_me;
     uint8_t        rxpkt_len;
     uint8_t        rxpkt_fcf0;
     uint8_t        rxpkt_fcf1;
@@ -497,13 +516,58 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
     uint8_t        rx_seq;
     // value of the FSCTRL register (1st byte only)
     uint8_t        reg_FSCTRL_byte0;
+    uint16_t       newCompareValue;
     
-    //===== read rx packet
-
+    // determine when I've just receive a packet for me
+    rx_for_me = (P1IN & 0x01);
+    
 #ifdef ENABLE_DEBUGPINS
-    DEBUGPIN_RXFORME_HIGH;
+    if (rx_for_me==1) {
+        DEBUGPIN_RXFORME_HIGH;
+        DEBUGPIN_RXFORME_LOW;
+    }
 #endif
     
+    // turn off radio if asked to, then abort
+    if (app_vars.fTurnOSCOffAtNextEndOfFrame==1 && rx_for_me==0) {
+        
+        // turn radio off
+        P4OUT          &= ~0x04;
+        U0TXBUF         = CC2420_SXOSCOFF;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1           &= ~URXIFG0;
+        P4OUT          |=  0x04;
+#ifdef ENABLE_DEBUGPINS
+        // debug pins
+        DEBUGPIN_RADIO_LOW; // after sending frame
+#endif
+#ifdef UART_HOP
+        // print over UART
+        if (app_vars.fSomethingToPrint==1) {
+            formatStringToPrint();
+            U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+        }
+#endif
+        
+        // abort
+        app_vars.fTurnOSCOffAtNextEndOfFrame=0;
+        return;
+    }
+    
+    // abort if not for me
+    if (rx_for_me==0) {
+        return;
+    }
+    
+    // if I get here, I received a packet for me
+    
+    // abort if I'm the sensing node, which doesn't care about receiving packets
+    if (app_vars.myId==ADDR_SENSING_NODE) {
+        return;
+    }
+    
+    //===== read rx packet from radio
+
     //>>>>> CS low
     P4OUT         &= ~0x04;
     
@@ -544,174 +608,85 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
     while ((IFG1 & URXIFG0)==0);
     IFG1          &= ~URXIFG0;
     P4OUT         |=  0x04;
-        
-    // parse DSN
+    
+    //===== handle packet
+    
+    // sanity check
+    if (
+            (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1 && rx_for_me==1) ||
+            (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1  && rx_for_me==1)
+        ) {
+        // this is a valid packet, go on
+    } else {
+        // abort, wrong length or FCF contents
+        return;
+    }
+    
+    // parse IEEE802.15.4 DSN field
     rx_light       = ((rxpkt_dsn&0x80)>>7);
     rx_hop         = ((rxpkt_dsn&0x70)>>4);
     rx_seq         = ((rxpkt_dsn&0x0f)>>0); 
-
-#ifdef ENABLE_DEBUGPINS
-    DEBUGPIN_RXFORME_LOW;
-#endif
     
-    if (app_vars.myId==ADDR_SINK_NODE){
-        // I'm the sink node
-        if (
-            (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) ||
-            (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1)
-        ) {
-            // wiggle light pin
-            if (rx_light==1){
-                DEBUGPIN_LIGHT_HIGH; // at sink node
-#ifdef ENABLE_LEDS
-                LED_LIGHT_ON; // at sink node
-#endif
-            } else {
-                DEBUGPIN_LIGHT_LOW; // at sink node
-#ifdef ENABLE_LEDS
-                LED_LIGHT_OFF; // at sink node
-#endif
-            }
-            
-            if (
-                (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
-                (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
-            ){
-                // it's a new sequence number
-                
 #ifdef UART_HOP
-                // store DSN field to print over UART
-                app_vars.dsnToPrint = rxpkt_dsn;
-                app_vars.fSomethingToPrint = 1;
+    // store DSN field to print over UART
+    app_vars.dsnToPrint = rxpkt_dsn;
+    app_vars.fSomethingToPrint = 1;
 #endif
                 
-                // update current_seq
-                app_vars.current_seq                = rx_seq;
-                
-                // turn off oscillator right now and turn on later
-                TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
-                TACCTL2  =  CCIE;
-                // send XOSCOFF strobe 
-                P4OUT      &= ~0x04;
-                U0TXBUF     = CC2420_SXOSCOFF;
-                while ((IFG1 & URXIFG0)==0);
-                IFG1       &= ~URXIFG0;
-                P4OUT      |=  0x04;
-#ifdef ENABLE_DEBUGPINS
-                DEBUGPIN_RADIO_LOW;
-#endif
-#ifdef UART_HOP
-                if (app_vars.fSomethingToPrint==1) {
-                    formatStringToPrint();
-                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
-                }
-#endif
-            }
-        }
-    } else {
-        // I'm NOT the sink node
-        
-        if (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1) {
-            // I received a valid ACK frame
-          
-#ifdef UART_HOP
-            // store DSN field to print over UART
-            app_vars.dsnToPrint = rxpkt_dsn;
-            app_vars.fSomethingToPrint = 1;
-#endif
-            
-            // wiggle light pin
-            if (app_vars.myId!=ADDR_SENSING_NODE) {
-                // I'm NOT the sensing node
-                
-                if (rx_light==1){
+    // apply light setting
+    if (rx_light==1){
 #ifdef LIGHTPIN_ALLMOTES
-                    DEBUGPIN_LIGHT_HIGH; // at relaying node, just received ACK
-#endif
-#ifdef ENABLE_LEDS
-                    LED_LIGHT_ON; // at relaying node, just received ACK
-#endif
-                } else {
-#ifdef LIGHTPIN_ALLMOTES
-                    DEBUGPIN_LIGHT_LOW; // at relaying node, just received ACK
-#endif
-#ifdef ENABLE_LEDS
-                    LED_LIGHT_OFF; // at relaying node, just received ACK
-#endif
-                }
-            } else {
-                // I'm the sensing node
-                
-                TACCR2   =  LIGHT_SAMPLE_PERIOD                         - \
-                            SENSING_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET + \
-                            timestamp_timerA;
-                TACCTL2  =  CCIE;
-                // send XOSCOFF strobe 
-                P4OUT      &= ~0x04;
-                U0TXBUF     = CC2420_SXOSCOFF;
-                while ((IFG1 & URXIFG0)==0);
-                IFG1       &= ~URXIFG0;
-                P4OUT      |=  0x04;
-#ifdef ENABLE_DEBUGPINS
-                DEBUGPIN_RADIO_LOW;
-#endif
-#ifdef UART_HOP
-                if (app_vars.fSomethingToPrint==1) {
-                    formatStringToPrint();
-                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
-                }
-#endif
-            }
-            
-#ifdef LOCAL_SETUP
-            if (app_vars.my_hop==0){
-                // not for me
-                
-                return;
-            } else {
-                if (app_vars.my_hop!=rx_hop){
-                    // not for me
-                    
-                    return;
-                } else {
-                    // after re-transmiting the packet, I need turn of radio OSC
-                    app_vars.fTurnOSCOffAtNextEndOfFrame=1;
-                }
-            }
+        if (1) {
 #else
-            if (
-                (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
-                (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
-            ){
-                
-                // update current_seq
-                app_vars.current_seq = rx_seq;
-            } else {
-                // old sequence number, end the process
-                TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
-                TACCTL2  =  CCIE;
-                // send XOSCOFF strobe 
-                P4OUT      &= ~0x04;
-                U0TXBUF     = CC2420_SXOSCOFF;
-                while ((IFG1 & URXIFG0)==0);
-                IFG1       &= ~URXIFG0;
-                P4OUT      |=  0x04;
+        if (app_vars.myId==ADDR_SINK_NODE) {
+#endif
+            DEBUGPIN_LIGHT_HIGH;
+        }
+#ifdef ENABLE_LEDS
+        LED_LIGHT_ON;
+#endif
+    } else {
+#ifdef LIGHTPIN_ALLMOTES
+        if (1) {
+#else
+        if (app_vars.myId==ADDR_SINK_NODE) {
+#endif
+            DEBUGPIN_LIGHT_LOW;
+        }
+#ifdef ENABLE_LEDS
+        LED_LIGHT_OFF;
+#endif
+    }
+    
+    //=== decide to relay or not
+    
+    if        (app_vars.myId==ADDR_SINK_NODE){
+        // I'm the sink node
+        // I never relay, radio can be turned off
+        
+        // turn radio off
+        P4OUT          &= ~0x04;
+        U0TXBUF         = CC2420_SXOSCOFF;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1           &= ~URXIFG0;
+        P4OUT          |=  0x04;
+        // debug pins
 #ifdef ENABLE_DEBUGPINS
-                DEBUGPIN_RADIO_LOW;
+        DEBUGPIN_RADIO_LOW;
 #endif
 #ifdef UART_HOP
-                if (app_vars.fSomethingToPrint==1) {
-                    formatStringToPrint();
-                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
-                }
+        // print over UART
+        if (app_vars.fSomethingToPrint==1) {
+            formatStringToPrint();
+            U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+        }
 #endif
-                return;
-            }
-#endif
+    } else {
+        if (rxpkt_len==FRAME_ACK_LEN){
+            // normal mote, received ACK
+            // I relay in SW
             
-            // if I get here, I'm going to relay
-            
-            // the process of loading the relayed packet take approx. 183us
+            //===== arm Timer B, it will issue the TXON strobe
             TBCCR2      = timestamp_timerB+app_vars.retransmitDelaySubticks;
             TBCCTL2     = CCIE;
             
@@ -735,15 +710,11 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
             
-            U0TXBUF  = WRITE_TXFIFO_DSN_BYTE1;        // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
+            U0TXBUF     = WRITE_TXFIFO_DSN_BYTE1;     // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
 
-#ifdef LOCAL_SETUP
-            U0TXBUF     = (rxpkt_dsn & 0x8f) | ((app_vars.my_hop+2)<<4);
-#else
-            U0TXBUF     = (rxpkt_dsn & 0x8f) | ((rx_hop         +1)<<4);
-#endif
+            U0TXBUF     = (rx_light<<7) | ((rx_hop+2)<<4) | rx_seq;
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
             
@@ -771,107 +742,35 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                 P4OUT  |=  0x04;
             
             } while(reg_FSCTRL_byte0 & 0x10);
-        } else {
             
-            if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
-                // I received a valid DATA frame
-                
-#ifdef UART_HOP
-                // store DSN field to print over UART
-                app_vars.dsnToPrint = rxpkt_dsn;
-                app_vars.fSomethingToPrint = 1;
-#endif
-                
-                if (rx_light==1){
-#ifdef LIGHTPIN_ALLMOTES
-                    DEBUGPIN_LIGHT_HIGH; // at relaying node, just received DATA
-#endif
-#ifdef ENABLE_LEDS
-                    LED_LIGHT_ON; // at relaying node, just received DATA
-#endif
-                } else {
-#ifdef LIGHTPIN_ALLMOTES
-                    DEBUGPIN_LIGHT_LOW; // at relaying node, just received DATA
-#endif
-#ifdef ENABLE_LEDS
-                    LED_LIGHT_OFF; // at relaying node, just received DATA
-#endif
-                }
-                
-#ifdef LOCAL_SETUP
-                if (app_vars.my_hop == 0){
-                    return;
-                }
-                app_vars.fTurnOSCOffAtNextEndOfFrame=1;
-#else   
-                if (
-                    (rx_seq>app_vars.current_seq &&    rx_seq-app_vars.current_seq<=0x02) ||
-                    (rx_seq<app_vars.current_seq && 16+rx_seq-app_vars.current_seq<=0x02)
-                ){
-                    
-                    // update current_seq
-                    app_vars.current_seq                = rx_seq;
-                } else {
-                    // old sequence number, end the process
-
-                    TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
-                    TACCTL2  =  CCIE;
-                    // send XOSCOFF strobe 
-                    P4OUT      &= ~0x04;
-                    U0TXBUF     = CC2420_SXOSCOFF;
-                    while ((IFG1 & URXIFG0)==0);
-                    IFG1       &= ~URXIFG0;
-                    P4OUT      |=  0x04;
-#ifdef ENABLE_DEBUGPINS
-                    DEBUGPIN_RADIO_LOW;
-#endif
-#ifdef UART_HOP
-                    if (app_vars.fSomethingToPrint==1) {
-                        formatStringToPrint();
-                        U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
-                    }
-#endif
-                }
-#endif
-            } else {
-#ifdef LOCAL_SETUP
-                if (rxpkt_len!=FRAME_DATA_LEN && rxpkt_len!=FRAME_ACK_LEN) {
-                    // rxfifo have been flushed previous endofframe
-                    if (app_vars.fTurnOSCOffAtNextEndOfFrame==1){
-                        if (app_vars.my_addr==0x02){
-                              TACCR2   =  LIGHT_SAMPLE_PERIOD                          - \
-                                          HOP1_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET     + \
-                                          timestamp_timerA;
-                        } else {
-                            if (app_vars.my_addr==0x03){
-                                TACCR2   =  LIGHT_SAMPLE_PERIOD                         - \
-                                            HOP2_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET    + \
-                                            timestamp_timerA;
-                            }
-                        }
-                        TACCTL2  =  CCIE;
-                        // send XOSCOFF strobe 
-                        P4OUT      &= ~0x04;
-                        U0TXBUF     = CC2420_SXOSCOFF;
-                        while ((IFG1 & URXIFG0)==0);
-                        IFG1       &= ~URXIFG0;
-                        P4OUT      |=  0x04;
-#ifdef ENABLE_DEBUGPINS
-                        DEBUGPIN_RADIO_LOW;
-#endif
-#ifdef UART_HOP
-                        if (app_vars.fSomethingToPrint==1) {
-                            formatStringToPrint();
-                            U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
-                        }
-#endif
-                        app_vars.fTurnOSCOffAtNextEndOfFrame=0;
-                    }
-                }
-#endif
-            }
+            // Timer B will fire and issue the command to send the packet
+            // nothing to do here
+            
+            // schedule to turn off the radio after the SW forward
+            app_vars.fTurnOSCOffAtNextEndOfFrame=1;
+        } else {
+            // normal mote, receiving DATA
+            // radio auto-ack feature relays it, I don't have anything to do
+            
+            // schedule to turn off the radio after the HW forward
+            app_vars.fTurnOSCOffAtNextEndOfFrame=1;
         }
     }
+    
+    // rearm Timer A CCR2 to wake up at next cycle
+    newCompareValue          = timestamp_timerA;
+    newCompareValue         += LIGHT_SAMPLE_PERIOD;
+    if (rxpkt_len==FRAME_ACK_LEN) {
+        // when I receive an ACK frame, I'm at at depth rx_hop+2
+        newCompareValue     -= (rx_hop+2)*ONE_HOP_LATENCY;
+    } else {
+        // when I receive a DATA frame, I'm at at depth rx_hop+1
+        newCompareValue     -= (rx_hop+1)*ONE_HOP_LATENCY;
+    }
+    newCompareValue         -=  RADIO_STARTUP_DURATION;
+    
+    TACCR2   =  newCompareValue;
+    TACCTL2  =  CCIE;
 }
 
 #ifdef UART_HOP
