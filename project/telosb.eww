@@ -23,6 +23,9 @@
     <path>$WS_DIR$\ref_radioosc\ref_radioosc.ewp</path>
   </project>
   <project>
+    <path>$WS_DIR$\ref_radiooscoff\ref_radiooscoff.ewp</path>
+  </project>
+  <project>
     <path>$WS_DIR$\ref_radiorx\ref_radiorx.ewp</path>
   </project>
   <project>
@@ -72,6 +75,10 @@
       </member>
       <member>
         <project>flashflood_testbed_production</project>
+        <configuration>Debug</configuration>
+      </member>
+      <member>
+        <project>ref_radiooscoff</project>
         <configuration>Debug</configuration>
       </member>
     </batchDefinition>
