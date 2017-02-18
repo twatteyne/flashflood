@@ -59,7 +59,7 @@ __interrupt void TIMERB1_ISR (void) {
    uint16_t timestamp_timerA = TAR;
    tbiv_local = TBIV;
 #ifdef ENABLE_DEBUGPINS
-   P6OUT |=  0x40; // P6.6
+   P6OUT |=  0x40; // P6.6 [timerBisr]
 #endif   
    if (tbiv_local==0x0004){
         // CCR2 compare fired
@@ -83,7 +83,7 @@ __interrupt void TIMERB1_ISR (void) {
                  // SFD pin went high
                 
 #ifdef ENABLE_DEBUGPINS
-                 P3OUT |=  0x20; // P3.5
+                 P3OUT |=  0x20; // P3.5 [sfd]
 #endif
                  
                  timer_b_vars.f_SFDreceived = 1;
@@ -92,7 +92,7 @@ __interrupt void TIMERB1_ISR (void) {
                  // SFD pin went low
                 
 #ifdef ENABLE_DEBUGPINS
-                 P3OUT &= ~0x20; // P3.5
+                 P3OUT &= ~0x20; // P3.5 [sfd]
 #endif
                  
                  if (timer_b_vars.f_SFDreceived == 1) {
@@ -110,7 +110,7 @@ __interrupt void TIMERB1_ISR (void) {
    }
    
 #ifdef ENABLE_DEBUGPINS
-   P6OUT &= ~0x40; // P6.6
+   P6OUT &= ~0x40; // P6.6 [timerBisr]
 #endif
    __bic_SR_register_on_exit(CPUOFF);
 }

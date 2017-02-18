@@ -61,14 +61,14 @@ __interrupt void TIMERA1_ISR (void) {
     taiv_local = TAIV;
 
 #ifdef ENABLE_DEBUGPINS
-    P3OUT |=  0x10; // P3.4
+    P3OUT |=  0x10; // P3.4 [timerAisr]
 #endif
 
     if (taiv_local==0x0002) {
         // CCR1 compare happeded
        
 #ifdef ENABLE_DEBUGPINS
-        P2OUT ^= 0x40; // P2.6
+        P2OUT ^= 0x40; // P2.6 [calibration]
 #endif
         timer_a_vars.compareCCR1andReturnTBRcb(timestamp);
    } else {
@@ -84,7 +84,7 @@ __interrupt void TIMERA1_ISR (void) {
       }
    }
 #ifdef ENABLE_DEBUGPINS
-   P3OUT &= ~0x10; // P3.4
+   P3OUT &= ~0x10; // P3.4 [timerAisr]
 #endif
    __bic_SR_register_on_exit(CPUOFF);
 }

@@ -71,7 +71,6 @@
 #define DEBUGPIN_LIGHT_INIT       P2DIR |=  0x08; // P2.3
 #define DEBUGPIN_LIGHT_HIGH       P2OUT |=  0x08;
 #define DEBUGPIN_LIGHT_LOW        P2OUT &= ~0x08;
-
 #define DEBUGPIN_RADIO_INIT       P6DIR |=  0x80; // P6.7
 #define DEBUGPIN_RADIO_HIGH       P6OUT |=  0x80;
 #define DEBUGPIN_RADIO_LOW        P6OUT &= ~0x80;
@@ -244,10 +243,10 @@ int main(void) {
     P4DIR     |=  0x20;                           // [P4.5] radio VREG:  output
     P4DIR     |=  0x40;                           // [P4.6] radio reset: output
     // set radio VREG pin high
-    P4OUT |=  0x20;
+    P4OUT     |=  0x20;
     for (delay=0xffff;delay>0;delay--);           // max. VREG start-up time is 0.6ms
     // set radio RESET pin low
-    P4OUT &= ~0x40; 
+    P4OUT     &= ~0x40; 
     for (delay=0xffff;delay>0;delay--);
     // set radio RESET pin high
     P4OUT |=  0x40;

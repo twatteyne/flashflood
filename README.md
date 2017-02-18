@@ -179,8 +179,8 @@ ACK
 | pin  | name           | role      | description |
 |------|----------------|-----------|-------------|
 | P2.3 | `light`        | light pin | output pin on the sink node (possibly on all nodes) |
-| P3.4 | `timerA`       | debugpin  | high during Timer A ISR |
-| P6.6 | `timerB`       | debugpin  | high during Timer B ISR |
+| P3.4 | `timerAisr`    | debugpin  | high during Timer A ISR |
+| P6.6 | `timerBisr`    | debugpin  | high during Timer B ISR |
 | P2.6 | `calibration`  | debugpin  | toggle at beginning of calibration |
 | P3.5 | `sfd`          | debugpin  | reflects status of SFD |
 | P6.7 | `radio`        | debugpin  | radio's oscillator on |
