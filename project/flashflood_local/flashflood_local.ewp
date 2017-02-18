@@ -176,6 +176,7 @@
           <state>LIGHTPIN_ALLMOTES</state>
           <state>ENABLE_LEDS</state>
           <state>ENABLE_DEBUGPINS</state>
+          <state>LINEAR_TOPOLOGY</state>
         </option>
         <option>
           <name>CCPreprocFile</name>
