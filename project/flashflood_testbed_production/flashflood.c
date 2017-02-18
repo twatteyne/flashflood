@@ -30,7 +30,7 @@
 #endif
 
 // light sensor
-#define LIGHT_SAMPLE_PERIOD       100   // @32kHz, 100=3ms
+#define LIGHT_SAMPLE_PERIOD       655   // @32kHz, 100=3ms
 #define LIGHT_THRESHOLD           400
 #define LIGHT_HYSTERESIS          100
 
@@ -202,8 +202,8 @@ int main(void) {
     
     // Timer A
     timer_a_init();
-    timer_a_setCompareCCR1andReturnTBRcb(timera_ccr1_compare_get_tbr_cb);
-    timer_a_setCompareCCR2Cb(timera_ccr2_compare_cb);
+    timer_a_setCompareCCR1andReturnTBRcb(timera_ccr1_compare_get_tbr_cb); // calibrate
+    timer_a_setCompareCCR2Cb(timera_ccr2_compare_cb); // trigger sensor reading
     // arm CCR1 (calibration)
     TACCR1         =  TAR+CALIBRATION_PERIOD_TICKS;
     TACCTL1        =  CCIE;
@@ -349,7 +349,6 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
 
 // sample light sensor
 void timera_ccr2_compare_cb(void) {
-    uint8_t iShouldSend;
     
     if (app_vars.myId==ADDR_SENSING_NODE){
         
@@ -360,7 +359,6 @@ void timera_ccr2_compare_cb(void) {
             // light was just turned on
             
             app_vars.light_state  = 1;
-            iShouldSend           = 1;
 #ifdef LIGHTPIN_ALLMOTES
             DEBUGPIN_LIGHT_HIGH;
 #endif
@@ -371,46 +369,39 @@ void timera_ccr2_compare_cb(void) {
             // light was just turned off
             
             app_vars.light_state  = 0;
-            iShouldSend           = 1;
 #ifdef LIGHTPIN_ALLMOTES
             DEBUGPIN_LIGHT_LOW;
 #endif
 #ifdef ENABLE_LEDS
             LED_LIGHT_OFF;
 #endif
-        } else {
-            // light stays in same state
-            
-            iShouldSend = 0;
         }
         
-        if (iShouldSend){
-            app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
-            
-            // write DSN to TXFIFO RAM 
-            P4OUT      &= ~0x04;
-            U0TXBUF     = WRITE_TXFIFO_DSN_BYTE0; // address[0] 0x03 | CC2420_FLAG_RAM 0x80
-            while ((IFG1 & URXIFG0)==0);
-            IFG1       &= ~URXIFG0;
-            U0TXBUF     = WRITE_TXFIFO_DSN_BYTE1; // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
-            while ((IFG1 & URXIFG0)==0);
-            IFG1       &= ~URXIFG0;
+        app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
+        
+        // write DSN to TXFIFO RAM 
+        P4OUT      &= ~0x04;
+        U0TXBUF     = WRITE_TXFIFO_DSN_BYTE0; // address[0] 0x03 | CC2420_FLAG_RAM 0x80
+        while ((IFG1 & URXIFG0)==0);
+        IFG1       &= ~URXIFG0;
+        U0TXBUF     = WRITE_TXFIFO_DSN_BYTE1; // address[1] (0x00>>1)&0xc0 | CC2420_FLAG_RAM_WRITE 0x00
+        while ((IFG1 & URXIFG0)==0);
+        IFG1       &= ~URXIFG0;
 #ifdef LOCAL_SETUP
-            U0TXBUF     = (app_vars.light_state<<7) | ((app_vars.my_hop+2)<<4) | app_vars.current_seq;
+        U0TXBUF     = (app_vars.light_state<<7) | ((app_vars.my_hop+2)<<4) | app_vars.current_seq;
 #else
-            U0TXBUF     = (app_vars.light_state<<7) |                            app_vars.current_seq;
+        U0TXBUF     = (app_vars.light_state<<7) |                            app_vars.current_seq;
 #endif
-            while ((IFG1 & URXIFG0)==0);
-            IFG1       &= ~URXIFG0;
-            P4OUT      |=  0x04;
-            
-            // send TXON strobe 
-            P4OUT      &= ~0x04;
-            U0TXBUF     = CC2420_STXON;
-            while ((IFG1 & URXIFG0)==0);
-            IFG1       &= ~URXIFG0;
-            P4OUT      |=  0x04;
-        }
+        while ((IFG1 & URXIFG0)==0);
+        IFG1       &= ~URXIFG0;
+        P4OUT      |=  0x04;
+        
+        // send TXON strobe 
+        P4OUT      &= ~0x04;
+        U0TXBUF     = CC2420_STXON;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1       &= ~URXIFG0;
+        P4OUT      |=  0x04;
         
         // re-arm
         TACCR2   =  TAR+LIGHT_SAMPLE_PERIOD;
