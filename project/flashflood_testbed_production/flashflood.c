@@ -38,7 +38,7 @@
 #endif
 
 // light sensor
-#define LIGHT_SAMPLE_PERIOD       655  // @32kHz, 655=20.000ms
+#define LIGHT_SAMPLE_PERIOD       350  // @32kHz, 655=20.000ms
 #define ONE_HOP_LATENCY            42  // @32kHz,  42= 1.280ms
 #define BACKTRACK_TUNING           41  // measured
 
