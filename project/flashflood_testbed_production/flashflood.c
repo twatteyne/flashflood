@@ -30,13 +30,16 @@
 #endif
 
 // light sensor
-#define LIGHT_SAMPLE_PERIOD       655   // @32kHz, 100=3ms
+#define LIGHT_SAMPLE_PERIOD       655   // @32kHz, 655=20ms
 #define DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION 42 // @32kHz, 42=1.27ms
 #define RADIO_STARTUP_DURATION    300  // 1ms
 
 #ifdef LOCAL_SETUP
-    #define HOP1_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET  29 //  @32kHz, 29=864us 
-    #define HOP2_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET  52 //  @32kHz, 29=1.58ms
+    #define SENSING_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET 29+5 // turn on oscillator a little later than hop 1, so hop 1 could hear the packet
+    #define HOP1_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET    29   //  @32kHz, 29=864us 
+    #define HOP2_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET    52   //  @32kHz, 29=1.58ms
+#else
+    #define SENSING_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET 34   // should be the same with local setup
 #endif
 
 #define LIGHT_THRESHOLD           400
@@ -389,6 +392,21 @@ void timera_ccr2_compare_cb(void) {
         
         app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
         
+#ifdef ENABLE_DEBUGPINS
+        P6OUT |= 0x80;
+#endif
+        // turn on oscillator
+        P4OUT      &= ~0x04;
+        U0TXBUF     = CC2420_SXOSCON;
+        while ((IFG1 & URXIFG0)==0);
+        IFG1       &= ~URXIFG0;
+        // wait until oscillator is on. status byte returned: bit 6 xosc16m_stable
+        do {
+            U0TXBUF     = CC2420_SNOP;
+            while ((IFG1 & URXIFG0)==0);
+            IFG1       &= ~URXIFG0;
+            rxByte      = U0RXBUF;
+        } while ((rxByte & 0x40) == 0);
         // write DSN to TXFIFO RAM 
         P4OUT      &= ~0x04;
         U0TXBUF     = WRITE_TXFIFO_DSN_BYTE0; // address[0] 0x03 | CC2420_FLAG_RAM 0x80
@@ -420,7 +438,6 @@ void timera_ccr2_compare_cb(void) {
 #ifdef ENABLE_DEBUGPINS
         P6OUT |= 0x80;
 #endif
-      
         // turn on oscillator
         P4OUT      &= ~0x04;
         U0TXBUF     = CC2420_SXOSCON;
@@ -578,6 +595,21 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                     LED_LIGHT_OFF;
 #endif
                 }
+            } else {
+              
+                TACCR2   =  LIGHT_SAMPLE_PERIOD                         - \
+                            SENSING_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET + \
+                            timestamp_timerA;
+                TACCTL2  =  CCIE;
+                // send XOSCOFF strobe 
+                P4OUT      &= ~0x04;
+                U0TXBUF     = CC2420_SXOSCOFF;
+                while ((IFG1 & URXIFG0)==0);
+                IFG1       &= ~URXIFG0;
+                P4OUT      |=  0x04;
+#ifdef ENABLE_DEBUGPINS
+                P6OUT      &= ~0x80;
+#endif
             }
             
 #ifdef LOCAL_SETUP
@@ -700,7 +732,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                 // I received a valid DATA frame
 
 #ifdef LOCAL_SETUP
-                if (app_vars.my_hop ==0){
+                if (app_vars.my_hop == 0){
                     return;
                 }
                 app_vars.fTurnOSCOffAtNextEndOfFrame=1;
@@ -714,12 +746,12 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                     app_vars.current_seq                = rx_seq;
                 } else {
                     // old sequence number, end the process
-    #ifdef UART_HOP
+#ifdef UART_HOP
                     if (app_vars.fSomethingToPrint==1) {
                         formatStringToPrint();
                         U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
                     }
-    #endif
+#endif
                     TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                     TACCTL2  =  CCIE;
                     // send XOSCOFF strobe 
@@ -729,22 +761,20 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                     IFG1       &= ~URXIFG0;
                     P4OUT      |=  0x04;
                     }
-    #endif
+#endif
             } else {
 #ifdef LOCAL_SETUP
-                if (rxpkt_len!=FRAME_DATA_LEN && rxpkt_len!=FRAME_DATA_LEN) {
+                if (rxpkt_len!=FRAME_DATA_LEN && rxpkt_len!=FRAME_ACK_LEN) {
                     // rxfifo have been flushed previous endofframe
                     if (app_vars.fTurnOSCOffAtNextEndOfFrame==1){
                         if (app_vars.my_addr==0x02){
-                              TACCR2   =  LIGHT_SAMPLE_PERIOD                            - \
-                                          HOP1_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET       - \
-                                          DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION +\
+                              TACCR2   =  LIGHT_SAMPLE_PERIOD                          - \
+                                          HOP1_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET     + \
                                           timestamp_timerA;
                         } else {
                             if (app_vars.my_addr==0x03){
-                                TACCR2   =  LIGHT_SAMPLE_PERIOD                            - \
-                                            HOP2_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET       - \
-                                            DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION +\
+                                TACCR2   =  LIGHT_SAMPLE_PERIOD                         - \
+                                            HOP2_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET    + \
                                             timestamp_timerA;
                             }
                         }
@@ -755,13 +785,15 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                         while ((IFG1 & URXIFG0)==0);
                         IFG1       &= ~URXIFG0;
                         P4OUT      |=  0x04;
+#ifdef ENABLE_DEBUGPINS
                         P6OUT &= ~0x80;
+#endif
                         app_vars.fTurnOSCOffAtNextEndOfFrame=0;
                     }
                 }
+#endif
             }
         }
-#endif
     }
 }
 

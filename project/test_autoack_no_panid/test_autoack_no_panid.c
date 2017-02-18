@@ -83,7 +83,7 @@ app_vars_t app_vars;
 //=========================== prototypes ======================================
 
 void timer_a_cb_compare(void);
-void timer_b_cb_endFrame(uint16_t timestamp);
+void timer_b_cb_endFrame(uint16_t timestamp_timerA,uint16_t timestamp_timerB);
 
 //=========================== main ============================================
 
@@ -225,7 +225,7 @@ void timer_a_cb_compare(void) {
         TACCTL2  =  CCIE;
     }
 }
-void timer_b_cb_endFrame(uint16_t timestamp){
+void timer_b_cb_endFrame(uint16_t timestamp_timerA,uint16_t timestamp_timerB){
     
     P4OUT  &= ~0x04;
     // read packet length
