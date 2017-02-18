@@ -24,10 +24,10 @@
         #define ADDR_SINK_NODE    0x57 // <-- logic analyzer
     #else
         #define ADDR_SENSING_NODE 0xdd // <-- logic analyzer
-        #define ADDR_HOP1_A_NODE  0x0f
-        #define ADDR_HOP1_B_NODE  0x16 // <-- logic analyzer
-        #define ADDR_HOP2_A_NODE  0x2b
-        #define ADDR_HOP2_B_NODE  0x57 // <-- logic analyzer
+        #define ADDR_HOP1_A_NODE  0x2b
+        #define ADDR_HOP1_B_NODE  0x0f
+        #define ADDR_HOP2_A_NODE  0x57 // <-- logic analyzer
+        #define ADDR_HOP2_B_NODE  0x16 // <-- logic analyzer
         #define ADDR_SINK_NODE    0x05
     #endif
     #define PANID                 0xc0ca
@@ -53,7 +53,7 @@
 #define LIGHT_THRESHOLD           400
 #define LIGHT_HYSTERESIS          100
 
-#define RETRANSMIT_DELAY_TICKS    7                             // 7@32768Hz = 210us, between end of ACK and start of DATA
+#define RETRANSMIT_DELAY_TICKS    7                             // 9@32768Hz = 275us, between end of ACK and start of DATA
 #define CALIBRATION_PERIOD_TICKS  (RETRANSMIT_DELAY_TICKS<<5)   // RETRANSMIT_DELAY<<5
 
 // txfifo dsn address (0x003)
@@ -83,6 +83,7 @@
 #define DEBUGPIN_RXFORME_INIT     P2DIR |=  0x40; // P2.6
 #define DEBUGPIN_RXFORME_HIGH     P2OUT |=  0x40;
 #define DEBUGPIN_RXFORME_LOW      P2OUT &= ~0x40;
+#define DEBUGPIN_RXFORME_TOGGLE   P2OUT ^=  0x40;
 
 // frequencies
 
@@ -188,7 +189,7 @@ int main(void) {
     WDTCTL     =  WDTPW + WDTHOLD;
     
     // setup clock speed
-    DCOCTL    |=  DCO0 | DCO1 | DCO2;            // MCLK at ~8MHz
+    DCOCTL    |=  DCO0  | DCO1  | DCO2;          // MCLK at ~8MHz
     BCSCTL1   |=  RSEL0 | RSEL1 | RSEL2;         // MCLK at ~8MHz
                                                  // by default, ACLK from 32kHz XTAL which is running
     
@@ -426,21 +427,28 @@ void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
     uint16_t temp;
     
     if (app_vars.lastTimestamp==0){
-        app_vars.retransmitDelaySubticks = 149*RETRANSMIT_DELAY_TICKS;
+        app_vars.retransmitDelaySubticks = 149*RETRANSMIT_DELAY_TICKS; // 149 4.8MHz ticks per 32kHz ticks
     } else {
+        temp = timestamp-app_vars.lastTimestamp;
+        
+        /*
         if (timestamp>app_vars.lastTimestamp){
             temp = timestamp-app_vars.lastTimestamp;
         } else {
             temp  = 0xffff-app_vars.lastTimestamp;
             temp += (timestamp+1);
         }
+        */
+        
         app_vars.retransmitDelaySubticks = (temp>>5); // subticks in RETRANSMIT_DELAY ticks
         
+        /*
         // at 3V, the typical Frequency ranges from 4.4MHz to 5.4MHz,
         // so the theoretical value of retransmitDelaySubticks ranges from (134~165)
         if (app_vars.retransmitDelaySubticks<134*RETRANSMIT_DELAY_TICKS || app_vars.retransmitDelaySubticks>165*RETRANSMIT_DELAY_TICKS){
             app_vars.retransmitDelaySubticks = 149*RETRANSMIT_DELAY_TICKS;
         }
+        */
     }
     
     // update lastTimestamp
@@ -530,7 +538,7 @@ void timera_ccr2_compare_cb(void) {
         app_vars.fTurnOSCOffAtNextEndOfFrame = 1;
         
         // increment sequence number, ready for next active period
-        app_vars.current_seq = (app_vars.current_seq+1)%16; // at sensing node
+        app_vars.current_seq = (app_vars.current_seq+1)&0x0f; // at sensing node
         
         // re-arm TimerA CCR2 (same period)
         TACCR2          =  TACCR2+LIGHT_SAMPLE_PERIOD;
@@ -597,7 +605,6 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     uint8_t        rx_hop;
     uint8_t        rx_seq;
     // value of the FSCTRL register (1st byte only)
-    uint8_t        reg_FSCTRL_byte0;
     uint16_t       newCompareValue;
     
     // determine when I've just receive a packet for me
@@ -649,7 +656,9 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     }
     
     //===== read rx packet from radio
-
+    
+    DEBUGPIN_RXFORME_TOGGLE;
+    
     //>>>>> CS low
     P4OUT         &= ~0x04;
     
@@ -693,10 +702,13 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     
     //===== handle packet
     
+    DEBUGPIN_RXFORME_TOGGLE;
+    
     // sanity check
     if (
-            (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1 && rx_for_me==1) ||
-            (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1  && rx_for_me==1)
+            (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1  && rx_for_me==1) ||
+            (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1 && rx_for_me==1)
+            
         ) {
         // this is a valid packet, go on
     } else {
@@ -721,7 +733,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     app_vars.dsnToPrint = rxpkt_dsn;
     app_vars.fSomethingToPrint = 1;
 #endif
-                
+    
     // apply light setting
     if (rx_light==1){
 #ifdef LIGHTPIN_ALLMOTES
@@ -784,6 +796,8 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             
             //===== prepare radio to relay
             
+            DEBUGPIN_RXFORME_TOGGLE;
+            
             //>>>>> CS low
             P4OUT      &= ~0x04;
             
@@ -806,13 +820,18 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
 
-            U0TXBUF     = (rx_light<<7) | ((rx_hop+2)<<4) | rx_seq;
+            U0TXBUF     = (rx_light<<7) | (((rx_hop+2)&0x07)<<4) | rx_seq;
             while ((IFG1 & URXIFG0)==0);
             IFG1       &= ~URXIFG0;
             
             //<<<<< CS high
             P4OUT      |=  0x04;
             
+            /*
+            // Per our analysis, waiting for the calibration takes 56us.
+            // The calibration is done 190us after the end of frame.
+            // Since the offet is 7 ticks (213.5us), we are confident the radio
+            // is calibrated when TimerB expires.
             // wait for radio calibration to be done
             do {
                 //>>>>> CS low
@@ -834,6 +853,8 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
                 P4OUT  |=  0x04;
             
             } while(reg_FSCTRL_byte0 & 0x10);
+            */
+            DEBUGPIN_RXFORME_TOGGLE;
             
             // Timer B will fire and issue the command to send the packet
             // nothing to do here
@@ -850,7 +871,9 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     }
     
     // increment sequence number, ready for next active period
-    app_vars.current_seq = (app_vars.current_seq+1)%16;
+    app_vars.current_seq = (app_vars.current_seq+1)&0x0f;
+    
+    DEBUGPIN_RXFORME_TOGGLE;
     
     // rearm Timer A CCR2 to wake up at next cycle
     newCompareValue          = timestamp_timerA;
@@ -866,6 +889,8 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     
     TACCR2   =  newCompareValue;
     TACCTL2  =  CCIE;
+    
+    DEBUGPIN_RXFORME_TOGGLE;
 }
 
 #ifdef UART_HOP

@@ -173,9 +173,7 @@
         <option>
           <name>CCDefines</name>
           <state>LOCAL_SETUP</state>
-          <state>LINEAR_TOPOLOGY</state>
           <state>LIGHTPIN_ALLMOTES</state>
-          <state>UART_HOP</state>
           <state>ENABLE_LEDS</state>
           <state>ENABLE_DEBUGPINS</state>
         </option>
