@@ -607,7 +607,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     uint16_t       newCompareValue;
     uint8_t        crcByte;
     uint8_t        i;
-    uint8_t        reg_FSCTRL_byte0;
+    //uint8_t        reg_FSCTRL_byte0;
     
     // determine when I've just receive a packet for me
     rx_for_me = (P1IN & 0x01);
