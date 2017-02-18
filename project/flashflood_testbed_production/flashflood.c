@@ -39,7 +39,7 @@
 
 // light sensor
 #define LIGHT_SAMPLE_PERIOD       655  // @32kHz, 655=20.00ms
-#define ONE_HOP_LATENCY            42  // @32kHz,  42= 1.27ms
+#define ONE_HOP_LATENCY            42  // @32kHz,  42= 1.28ms
 #define RADIO_STARTUP_DURATION     30  // @32kHz,  30= 1.00ms
 
 #ifdef LOCAL_SETUP
