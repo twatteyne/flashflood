@@ -32,6 +32,8 @@
 // light sensor
 #define LIGHT_SAMPLE_PERIOD       655   // @32kHz, 100=3ms
 #define DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION 42 // @32kHz, 42=1.27ms
+#define RADIO_STARTUP_DURATION    300  // 1ms
+
 #define LIGHT_THRESHOLD           400
 #define LIGHT_HYSTERESIS          100
 
@@ -530,7 +532,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                 // update current_seq
                 app_vars.current_seq                = rx_seq;
                 // turn off oscillator right now and turn on later
-                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION;
+                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                 TACCTL2  =  CCIE;
                 // send XOSCOFF strobe 
                 P4OUT      &= ~0x04;
@@ -566,7 +568,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
             }
             
 #ifdef LOCAL_SETUP
-            if (app_vars.my_hop==0 || app_vars.my_hop==1){
+            if (app_vars.my_hop==0){
                 // not for me
                 
                 return;
@@ -593,7 +595,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
                 }
 #endif
-                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION;
+                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                 TACCTL2  =  CCIE;
                 // send XOSCOFF strobe 
                 P4OUT      &= ~0x04;
@@ -699,7 +701,7 @@ void timer_b_cb_endFrame(uint16_t timestamp){
                     U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
                 }
 #endif
-                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION;
+                TACCR2   =  TACCR2+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                 TACCTL2  =  CCIE;
                 // send XOSCOFF strobe 
                 P4OUT      &= ~0x04;
