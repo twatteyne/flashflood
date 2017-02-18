@@ -307,6 +307,9 @@ int main(void) {
     __bis_SR_register(GIE);
     
     // per datasheet Section 13.5, "the crystal oscillator must be running when accessing the RAM."
+#ifdef ENABLE_DEBUGPINS
+    DEBUGPIN_RADIO_HIGH;
+#endif
     radio_oscillatorOn();
     
     // configure radio's identifiers
@@ -401,7 +404,7 @@ void timera_ccr2_compare_cb(void) {
         app_vars.current_seq = (app_vars.current_seq+1)%16; // lower 4 bits are dsn
         
 #ifdef ENABLE_DEBUGPINS
-        DEBUGPIN_RADIO_HIGH;
+        DEBUGPIN_RADIO_HIGH; // at sending node, after sampling light
 #endif
         // turn on oscillator
         P4OUT      &= ~0x04;
@@ -444,7 +447,7 @@ void timera_ccr2_compare_cb(void) {
         TACCTL2  =  CCIE;
     } else {
 #ifdef ENABLE_DEBUGPINS
-        DEBUGPIN_RADIO_HIGH;
+        DEBUGPIN_RADIO_HIGH; // at not-sensing node
 #endif
         // turn on oscillator
         P4OUT      &= ~0x04;
@@ -587,6 +590,9 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                 while ((IFG1 & URXIFG0)==0);
                 IFG1       &= ~URXIFG0;
                 P4OUT      |=  0x04;
+#ifdef ENABLE_DEBUGPINS
+                DEBUGPIN_RADIO_LOW;
+#endif
             }
         }
     } else {
@@ -668,6 +674,9 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                 while ((IFG1 & URXIFG0)==0);
                 IFG1       &= ~URXIFG0;
                 P4OUT      |=  0x04;
+#ifdef ENABLE_DEBUGPINS
+                DEBUGPIN_RADIO_LOW;
+#endif
                 return;
             }
 #endif
@@ -790,7 +799,10 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                     while ((IFG1 & URXIFG0)==0);
                     IFG1       &= ~URXIFG0;
                     P4OUT      |=  0x04;
-                    }
+#ifdef ENABLE_DEBUGPINS
+                    DEBUGPIN_RADIO_LOW;
+#endif
+                }
 #endif
             } else {
 #ifdef LOCAL_SETUP

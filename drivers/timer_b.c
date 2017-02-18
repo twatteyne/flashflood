@@ -99,9 +99,9 @@ __interrupt void TIMERB1_ISR (void) {
 #endif
                  
                  if (timer_b_vars.f_SFDreceived==1) {
-                     if (P1IN & 0x01) {
+                     //if (P1IN & 0x01) {
                          timer_b_vars.endFrameCb(timestamp_timerA,TBCCR1);
-                     }
+                     //}
                      timer_b_vars.f_SFDreceived = 0;
                  }
                  TBCCTL1 &= ~COV;
