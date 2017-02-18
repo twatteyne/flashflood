@@ -15,15 +15,21 @@
 
 // mote addresses
 #ifdef LOCAL_SETUP
-    #define ADDR_SENSING_NODE     0xdd
-
-    #define ADDR_HOP1_A_NODE      0x0f
-    #define ADDR_HOP1_B_NODE      0x16
-
-    #define ADDR_HOP2_A_NODE      0x2b
-    #define ADDR_HOP2_B_NODE      0x57
-
-    #define ADDR_SINK_NODE        0x05
+    #ifdef LINEAR_TOPOLOGY
+        #define ADDR_SENSING_NODE 0xdd // <-- logic analyzer       
+        #define ADDR_HOP1_NODE    0x0f
+        #define ADDR_HOP2_NODE    0x16 // <-- logic analyzer
+        #define ADDR_HOP3_NODE    0x2b
+        #define ADDR_HOP4_NODE    0x05
+        #define ADDR_SINK_NODE    0x57 // <-- logic analyzer
+    #else
+        #define ADDR_SENSING_NODE 0xdd
+        #define ADDR_HOP1_A_NODE  0x0f
+        #define ADDR_HOP1_B_NODE  0x16
+        #define ADDR_HOP2_A_NODE  0x2b
+        #define ADDR_HOP2_B_NODE  0x57
+        #define ADDR_SINK_NODE    0x05
+    #endif
     #define PANID                 0xc0ca
 #else
     #define ADDR_SENSING_NODE     0xa0
@@ -193,24 +199,49 @@ int main(void) {
     app_vars.myId = eui64[7];
     
 #ifdef LOCAL_SETUP
-    switch(app_vars.myId){
-        case ADDR_SENSING_NODE:
-            app_vars.my_addr  = 1;
-            break;
-        case ADDR_HOP1_A_NODE:
-        case ADDR_HOP1_B_NODE:
-            app_vars.my_addr  = 2;
-            break;
-        case ADDR_HOP2_A_NODE:
-        case ADDR_HOP2_B_NODE:
-            app_vars.my_addr  = 3;
-            break;
-        case ADDR_SINK_NODE:
-            app_vars.my_addr  = 4;
-            break;
-        default:
-            break;
-    }
+    #ifdef LINEAR_TOPOLOGY
+        switch(app_vars.myId){
+            case ADDR_SENSING_NODE:
+                app_vars.my_addr  = 1;
+                break;
+            case ADDR_HOP1_NODE:
+                app_vars.my_addr  = 2;
+                break;
+            case ADDR_HOP2_NODE:
+                app_vars.my_addr  = 3;
+                break;
+            case ADDR_HOP3_NODE:
+                app_vars.my_addr  = 4;
+                break;
+            case ADDR_HOP4_NODE:
+                app_vars.my_addr  = 5;
+                break;    
+            case ADDR_SINK_NODE:
+                app_vars.my_addr  = 6;
+                break;
+            default:
+                break;
+        }
+    #else
+        switch(app_vars.myId){
+            case ADDR_SENSING_NODE:
+                app_vars.my_addr  = 1;
+                break;
+            case ADDR_HOP1_A_NODE:
+            case ADDR_HOP1_B_NODE:
+                app_vars.my_addr  = 2;
+                break;
+            case ADDR_HOP2_A_NODE:
+            case ADDR_HOP2_B_NODE:
+                app_vars.my_addr  = 3;
+                break;
+            case ADDR_SINK_NODE:
+                app_vars.my_addr  = 4;
+                break;
+            default:
+                break;
+        }
+    #endif
 #else
     app_vars.my_addr  = 0x11;
 #endif
