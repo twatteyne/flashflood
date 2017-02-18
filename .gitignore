@@ -21,3 +21,4 @@
 *.tmp
 *.dep
 *.wsdt
+/project/flashflood_local/path.txt

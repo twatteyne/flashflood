@@ -32,6 +32,9 @@ void timer_b_init() {
     P4DIR   &= ~0x02; // input
     P4SEL   |=  0x02; // in CCI1a/B mode
     
+    // radio FIFOP pin connected to P1.0
+    P1DIR   &= ~0x01; // input
+    
     // CCR1 in capture mode
     TBCCTL1  =  CM_3+SCS+CAP+CCIE;
     TBCCR1   =  0;
@@ -95,8 +98,10 @@ __interrupt void TIMERB1_ISR (void) {
                  P3OUT &= ~0x20; // P3.5 [sfd]
 #endif
                  
-                 if (timer_b_vars.f_SFDreceived == 1) {
-                     timer_b_vars.endFrameCb(timestamp_timerA,TBCCR1);
+                 if (timer_b_vars.f_SFDreceived==1) {
+                     if (P1IN & 0x01) {
+                         timer_b_vars.endFrameCb(timestamp_timerA,TBCCR1);
+                     }
                      timer_b_vars.f_SFDreceived = 0;
                  }
                  TBCCTL1 &= ~COV;

@@ -74,6 +74,9 @@
 #define DEBUGPIN_RADIO_INIT       P6DIR |=  0x80; // P6.7
 #define DEBUGPIN_RADIO_HIGH       P6OUT |=  0x80;
 #define DEBUGPIN_RADIO_LOW        P6OUT &= ~0x80;
+#define DEBUGPIN_RXFORME_INIT     P2DIR |=  0x40; // P2.6
+#define DEBUGPIN_RXFORME_HIGH     P2OUT |=  0x40;
+#define DEBUGPIN_RXFORME_LOW      P2OUT &= ~0x40;
 
 //=========================== statics =========================================
 
@@ -112,7 +115,7 @@ app_vars_t app_vars;
 
 void timera_ccr2_compare_cb(void);
 void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp);
-void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB);
+void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_timerB);
 #ifdef UART_HOP
 void formatStringToPrint();
 #endif
@@ -187,7 +190,7 @@ int main(void) {
     // debugpins
     P3DIR    |=  0x10;                           // [P3.4] timerAisr
     P6DIR    |=  0x40;                           // [P6.6] timerBisr
-    P2DIR    |=  0x40;                           // [P2.6] calibration
+    DEBUGPIN_RXFORME_INIT;
     P3DIR    |=  0x20;                           // [P3.5] sfd
     DEBUGPIN_RADIO_INIT;
 #endif
@@ -230,7 +233,7 @@ int main(void) {
     
     // Timer B
     timer_b_init();
-    timer_b_setEndFrameCb(timer_b_cb_endFrame);
+    timer_b_setEndFrameCb(timer_b_cb_endFrameForMe);
     
     // ADC
     if (app_vars.myId==ADDR_SENSING_NODE) {
@@ -381,7 +384,7 @@ void timera_ccr2_compare_cb(void) {
             DEBUGPIN_LIGHT_HIGH; // at sensing node
 #endif
 #ifdef ENABLE_LEDS
-            LED_LIGHT_ON;
+            LED_LIGHT_ON; // at sensing node
 #endif
         } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LIGHT_THRESHOLD - LIGHT_HYSTERESIS))) {
             // light was just turned off
@@ -391,7 +394,7 @@ void timera_ccr2_compare_cb(void) {
             DEBUGPIN_LIGHT_LOW; // at sensing node
 #endif
 #ifdef ENABLE_LEDS
-            LED_LIGHT_OFF;
+            LED_LIGHT_OFF; // at sensing node
 #endif
         }
         
@@ -477,8 +480,9 @@ void timera_ccr2_compare_cb(void) {
     }
 }
 
-// done receiving a packet
-void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
+// done receiving a packet for me
+// node: timer B only calls this if frame is really for me
+void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     // raw packet received
     uint8_t        rxpkt_len;
     uint8_t        rxpkt_fcf0;
@@ -492,6 +496,10 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     uint8_t        reg_FSCTRL_byte0;
     
     //===== read rx packet
+
+#ifdef ENABLE_DEBUGPINS
+    DEBUGPIN_RXFORME_HIGH;
+#endif
     
     //>>>>> CS low
     P4OUT         &= ~0x04;
@@ -538,6 +546,10 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     rx_light       = ((rxpkt_dsn&0x80)>>7);
     rx_hop         = ((rxpkt_dsn&0x70)>>4);
     rx_seq         = ((rxpkt_dsn&0x0f)>>0); 
+
+#ifdef ENABLE_DEBUGPINS
+    DEBUGPIN_RXFORME_LOW;
+#endif
     
     if (app_vars.myId==ADDR_SINK_NODE){
         // I'm the sink node
@@ -549,12 +561,12 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             if (rx_light==1){
                 DEBUGPIN_LIGHT_HIGH; // at sink node
 #ifdef ENABLE_LEDS
-                LED_LIGHT_ON;
+                LED_LIGHT_ON; // at sink node
 #endif
             } else {
                 DEBUGPIN_LIGHT_LOW; // at sink node
 #ifdef ENABLE_LEDS
-                LED_LIGHT_OFF;
+                LED_LIGHT_OFF; // at sink node
 #endif
             }
             
@@ -587,17 +599,17 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             if (app_vars.myId!=ADDR_SENSING_NODE) {
                 if (rx_light==1){
 #ifdef LIGHTPIN_ALLMOTES
-                    DEBUGPIN_LIGHT_HIGH;
+                    DEBUGPIN_LIGHT_HIGH; // at relaying node, just received ACK
 #endif
 #ifdef ENABLE_LEDS
-                    LED_LIGHT_ON;
+                    LED_LIGHT_ON; // at relaying node, just received ACK
 #endif
                 } else {
 #ifdef LIGHTPIN_ALLMOTES
-                    DEBUGPIN_LIGHT_LOW;
+                    DEBUGPIN_LIGHT_LOW; // at relaying node, just received ACK
 #endif
 #ifdef ENABLE_LEDS
-                    LED_LIGHT_OFF;
+                    LED_LIGHT_OFF; // at relaying node, just received ACK
 #endif
                 }
             } else {
@@ -732,7 +744,23 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             
             if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
                 // I received a valid DATA frame
-
+                
+                if (rx_light==1){
+#ifdef LIGHTPIN_ALLMOTES
+                    DEBUGPIN_LIGHT_HIGH; // at relaying node, just received DATA
+#endif
+#ifdef ENABLE_LEDS
+                    LED_LIGHT_ON; // at relaying node, just received DATA
+#endif
+                } else {
+#ifdef LIGHTPIN_ALLMOTES
+                    DEBUGPIN_LIGHT_LOW; // at relaying node, just received DATA
+#endif
+#ifdef ENABLE_LEDS
+                    LED_LIGHT_OFF; // at relaying node, just received DATA
+#endif
+                }
+                
 #ifdef LOCAL_SETUP
                 if (app_vars.my_hop == 0){
                     return;

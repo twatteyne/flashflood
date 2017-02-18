@@ -66,10 +66,7 @@ __interrupt void TIMERA1_ISR (void) {
 
     if (taiv_local==0x0002) {
         // CCR1 compare happeded
-       
-#ifdef ENABLE_DEBUGPINS
-        P2OUT ^= 0x40; // P2.6 [calibration]
-#endif
+        
         timer_a_vars.compareCCR1andReturnTBRcb(timestamp);
    } else {
       if (taiv_local==0x0004) {
