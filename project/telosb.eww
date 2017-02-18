@@ -34,6 +34,9 @@
   <project>
     <path>$WS_DIR$\test_lightuart\test_lightuart.ewp</path>
   </project>
+  <project>
+    <path>$WS_DIR$\test_radiostartuptime\test_radiostartuptime.ewp</path>
+  </project>
   <batchBuild>
     <batchDefinition>
       <name>all debug</name>

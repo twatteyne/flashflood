@@ -40,6 +40,7 @@ typedef enum {
 // RF admin
 void     radio_setFrequency(uint8_t frequency);
 void     radio_oscillatorOn(void);
+void     radio_oscillatorOff(void);
 void     radio_rfOff(void);
 // TX
 void     radio_loadPacket(uint8_t* packet, uint16_t len);

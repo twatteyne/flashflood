@@ -3,7 +3,7 @@
 #include "radio.h"
 
 /**
-\brief The program test the energy consumption under LPM3 when radio oscillator is on.
+\brief The program test the energy consumption under LPM3 when radio oscillator is off.
 */
 int main(void) {
   uint16_t delay;
