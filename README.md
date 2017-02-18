@@ -20,14 +20,14 @@ competition
 
 local
 
-| EUI64                     |GoLogic | role         | Tengfei | Thomas |
-|---------------------------|--------|--------------|---------|--------|
-| `14-15-92-00-12-e6-3b-dd` | A8     | sensing node | `COM20` | `COM3` |
-| `14-15-92-00-12-e6-43-0f` |        | hop 1, A     | `COM16` | `COM4` |
-| `14-15-92-00-12-e6-6f-16` | B1     | hop 1, B     | `COM19` | `COM5` |
-| `14-15-92-00-12-e6-bb-5e` |        | hop 2, A     | `COM5`  | `COM6` |
-| `14-15-92-00-12-e6-b9-57` | B8     | hop 2, B     | `COM21` | `COM7` |
-| `14-15-92-00-12-e6-79-05` |        | sink node    | `COM18` | `COM8` |
+| EUI64                     |GoLogic | role    | Tengfei | Thomas |
+|---------------------------|--------|---------|---------|--------|
+| `14-15-92-00-12-e6-3b-dd` | A8     | sensing | `COM20` | `COM3` |
+| `14-15-92-00-12-e6-43-0f` |        | 1A      | `COM16` | `COM4` |
+| `14-15-92-00-12-e6-6f-16` | B1     | 1B      | `COM19` | `COM5` |
+| `14-15-92-00-12-e6-bb-5e` |        | 2A      | `COM5`  | `COM6` |
+| `14-15-92-00-12-e6-b9-57` | B8     | 2B      | `COM21` | `COM7` |
+| `14-15-92-00-12-e6-79-05` |        | sink    | `COM18` | `COM8` |
 
 testbed
 
@@ -181,7 +181,7 @@ ACK
 | P2.3 | `light`        | light pin | output pin on the sink node (possibly on all nodes) |
 | P3.4 | `timerAisr`    | debugpin  | high during Timer A ISR |
 | P6.6 | `timerBisr`    | debugpin  | high during Timer B ISR |
-| P2.6 | `calibration`  | debugpin  | toggle at beginning of calibration |
+| P2.6 | `rxforme`      | debugpin  | toggle at beginning of calibration |
 | P3.5 | `sfd`          | debugpin  | reflects status of SFD |
 | P6.7 | `radio`        | debugpin  | radio's oscillator on |
 

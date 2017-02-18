@@ -544,7 +544,7 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
     while ((IFG1 & URXIFG0)==0);
     IFG1          &= ~URXIFG0;
     P4OUT         |=  0x04;
-    
+        
     // parse DSN
     rx_light       = ((rxpkt_dsn&0x80)>>7);
     rx_hop         = ((rxpkt_dsn&0x70)>>4);
@@ -579,8 +579,15 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
             ){
                 // it's a new sequence number
                 
+#ifdef UART_HOP
+                // store DSN field to print over UART
+                app_vars.dsnToPrint = rxpkt_dsn;
+                app_vars.fSomethingToPrint = 1;
+#endif
+                
                 // update current_seq
                 app_vars.current_seq                = rx_seq;
+                
                 // turn off oscillator right now and turn on later
                 TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                 TACCTL2  =  CCIE;
@@ -593,6 +600,12 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
 #ifdef ENABLE_DEBUGPINS
                 DEBUGPIN_RADIO_LOW;
 #endif
+#ifdef UART_HOP
+                if (app_vars.fSomethingToPrint==1) {
+                    formatStringToPrint();
+                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+                }
+#endif
             }
         }
     } else {
@@ -601,8 +614,16 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
         if (rxpkt_len==FRAME_ACK_LEN  && rxpkt_fcf0==FRAME_ACK_FCF0  && rxpkt_fcf1==FRAME_ACK_FCF1) {
             // I received a valid ACK frame
           
+#ifdef UART_HOP
+            // store DSN field to print over UART
+            app_vars.dsnToPrint = rxpkt_dsn;
+            app_vars.fSomethingToPrint = 1;
+#endif
+            
             // wiggle light pin
             if (app_vars.myId!=ADDR_SENSING_NODE) {
+                // I'm NOT the sensing node
+                
                 if (rx_light==1){
 #ifdef LIGHTPIN_ALLMOTES
                     DEBUGPIN_LIGHT_HIGH; // at relaying node, just received ACK
@@ -619,7 +640,8 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
 #endif
                 }
             } else {
-              
+                // I'm the sensing node
+                
                 TACCR2   =  LIGHT_SAMPLE_PERIOD                         - \
                             SENSING_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET + \
                             timestamp_timerA;
@@ -632,6 +654,12 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                 P4OUT      |=  0x04;
 #ifdef ENABLE_DEBUGPINS
                 DEBUGPIN_RADIO_LOW;
+#endif
+#ifdef UART_HOP
+                if (app_vars.fSomethingToPrint==1) {
+                    formatStringToPrint();
+                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+                }
 #endif
             }
             
@@ -660,12 +688,6 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                 app_vars.current_seq = rx_seq;
             } else {
                 // old sequence number, end the process
-#ifdef UART_HOP
-                if (app_vars.fSomethingToPrint==1) {
-                    formatStringToPrint();
-                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
-                }
-#endif
                 TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                 TACCTL2  =  CCIE;
                 // send XOSCOFF strobe 
@@ -677,17 +699,17 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
 #ifdef ENABLE_DEBUGPINS
                 DEBUGPIN_RADIO_LOW;
 #endif
+#ifdef UART_HOP
+                if (app_vars.fSomethingToPrint==1) {
+                    formatStringToPrint();
+                    U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+                }
+#endif
                 return;
             }
 #endif
             
             // if I get here, I'm going to relay
-            
-#ifdef UART_HOP
-            // store DSN field to print over UART
-            app_vars.dsnToPrint = rxpkt_dsn;
-            app_vars.fSomethingToPrint = 1;
-#endif  
             
             // the process of loading the relayed packet take approx. 183us
             TBCCR2      = timestamp_timerB+app_vars.retransmitDelaySubticks;
@@ -754,6 +776,12 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
             if (rxpkt_len==FRAME_DATA_LEN && rxpkt_fcf0==FRAME_DATA_FCF0 && rxpkt_fcf1==FRAME_DATA_FCF1) {
                 // I received a valid DATA frame
                 
+#ifdef UART_HOP
+                // store DSN field to print over UART
+                app_vars.dsnToPrint = rxpkt_dsn;
+                app_vars.fSomethingToPrint = 1;
+#endif
+                
                 if (rx_light==1){
 #ifdef LIGHTPIN_ALLMOTES
                     DEBUGPIN_LIGHT_HIGH; // at relaying node, just received DATA
@@ -785,12 +813,7 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                     app_vars.current_seq                = rx_seq;
                 } else {
                     // old sequence number, end the process
-#ifdef UART_HOP
-                    if (app_vars.fSomethingToPrint==1) {
-                        formatStringToPrint();
-                        U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
-                    }
-#endif
+
                     TACCR2   =  timestamp_timerA+LIGHT_SAMPLE_PERIOD-rx_hop*DURATION_OF_SUCCESSIVE_DATA_ACK_RETRANSMISSION-RADIO_STARTUP_DURATION;
                     TACCTL2  =  CCIE;
                     // send XOSCOFF strobe 
@@ -801,6 +824,12 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                     P4OUT      |=  0x04;
 #ifdef ENABLE_DEBUGPINS
                     DEBUGPIN_RADIO_LOW;
+#endif
+#ifdef UART_HOP
+                    if (app_vars.fSomethingToPrint==1) {
+                        formatStringToPrint();
+                        U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+                    }
 #endif
                 }
 #endif
@@ -829,6 +858,12 @@ void timer_b_cb_endFrameForMe(uint16_t timestamp_timerA, uint16_t timestamp_time
                         P4OUT      |=  0x04;
 #ifdef ENABLE_DEBUGPINS
                         DEBUGPIN_RADIO_LOW;
+#endif
+#ifdef UART_HOP
+                        if (app_vars.fSomethingToPrint==1) {
+                            formatStringToPrint();
+                            U1TXBUF = app_vars.bufferToPrint[app_vars.nextIndexToPrint];
+                        }
 #endif
                         app_vars.fTurnOSCOffAtNextEndOfFrame=0;
                     }

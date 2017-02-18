@@ -5,12 +5,12 @@ import threading
 import serial
 
 SERIALPORTMAP = {
-    'COM20': 'sensing node',
-    'COM16': 'hop 1, A',
-    'COM19': 'hop 1, B',
-    'COM5':  'hop 2, A',
-    'COM21': 'hop 2, B',
-    'COM18': 'sink node',
+    'COM3': 'sensing',
+    'COM4': '1A',
+    'COM5': '1B',
+    'COM6': '2A',
+    'COM7': '2B',
+    'COM8': 'sink',
 }
 
 def findSerialPorts():

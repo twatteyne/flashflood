@@ -93,7 +93,7 @@ __interrupt void TIMERB1_ISR (void) {
                  
             } else {
                  // SFD pin went low
-                
+                 
 #ifdef ENABLE_DEBUGPINS
                  P3OUT &= ~0x20; // P3.5 [sfd]
 #endif
