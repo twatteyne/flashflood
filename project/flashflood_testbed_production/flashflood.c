@@ -130,22 +130,22 @@ int main(void) {
     memset(&app_vars,0,sizeof(app_vars_t));
     memset(&eui64[0],0,8);
     
-    app_vars.hopping_sequence[0]  = 11;
-    app_vars.hopping_sequence[1]  = 12;
-    app_vars.hopping_sequence[2]  = 13;
-    app_vars.hopping_sequence[3]  = 14;
-    app_vars.hopping_sequence[4]  = 15;
-    app_vars.hopping_sequence[5]  = 16;
-    app_vars.hopping_sequence[6]  = 17;
-    app_vars.hopping_sequence[7]  = 18;
-    app_vars.hopping_sequence[8]  = 19;
-    app_vars.hopping_sequence[9]  = 20;
-    app_vars.hopping_sequence[10] = 21;
-    app_vars.hopping_sequence[11] = 22;
-    app_vars.hopping_sequence[12] = 23;
-    app_vars.hopping_sequence[13] = 24;
-    app_vars.hopping_sequence[14] = 25;
-    app_vars.hopping_sequence[15] = 26;
+    app_vars.hopping_sequence[0x00] = 15;
+    app_vars.hopping_sequence[0x01] = 20;
+    app_vars.hopping_sequence[0x02] = 25;
+    app_vars.hopping_sequence[0x03] = 26; //===
+    app_vars.hopping_sequence[0x04] = 15;
+    app_vars.hopping_sequence[0x05] = 20;
+    app_vars.hopping_sequence[0x06] = 25;
+    app_vars.hopping_sequence[0x07] = 26; //===
+    app_vars.hopping_sequence[0x08] = 15;
+    app_vars.hopping_sequence[0x09] = 20;
+    app_vars.hopping_sequence[0x0a] = 25;
+    app_vars.hopping_sequence[0x0b] = 26; //===
+    app_vars.hopping_sequence[0x0c] = 15;
+    app_vars.hopping_sequence[0x0d] = 20;
+    app_vars.hopping_sequence[0x0e] = 25;
+    app_vars.hopping_sequence[0x0f] = 26; //===
     
     //===== fire up board
     

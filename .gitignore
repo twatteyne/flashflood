@@ -18,7 +18,10 @@
 /project/test_autoack_no_panid/settings/
 /project/test_lightuart/Debug/
 /project/test_lightuart/settings/
+/project/ref_radiooscoff/Debug/
+/project/ref_radiooscoff/settings/
 *.tmp
 *.dep
 *.wsdt
 /project/flashflood_local/path.txt
+
