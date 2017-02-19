@@ -1,3 +1,14 @@
+/*
+Companion code to the article
+Exploiting Constructive Interference in 802.15.4 Networks: Survey and Hands-On Tutorial
+
+This code runs on TelosB boards only. Refer to the README.md file in this
+repository for additional information, including on #defines you can use.
+
+\author Tengfei Chang <poipoi>, February 2017.
+\author Thomas Watteyne <thomas.watteyne@inria.fr>, February 2017.
+*/
+
 // general
 #include "string.h"
 // platform
@@ -11,62 +22,66 @@
 #include "timer_a.h"
 #include "timer_b.h"
 
-//=========================== defines =========================================
+//=========================== configurations ==================================
+/*
+This section contains configurations you can change to match your own setup.
+The rest of this source code can be used untouched.
+*/
 
-// mote addresses
+#define SAMPLE_PERIOD             655                                          // @32kHz, 655=20ms. period at which the sensing node senses and sends data
+
+// mote addresses.
 #ifdef LOCAL_SETUP
     #ifdef LINEAR_TOPOLOGY
-        #define ADDR_SENSING_NODE 0xdd // <-- logic analyzer
+        #define ADDR_SENSING_NODE 0xdd
         #define ADDR_HOP1_NODE    0x0f
-        #define ADDR_HOP2_NODE    0x16 // <-- logic analyzer
+        #define ADDR_HOP2_NODE    0x16
         #define ADDR_HOP3_NODE    0x2b
         #define ADDR_HOP4_NODE    0x05
-        #define ADDR_SINK_NODE    0x57 // <-- logic analyzer
+        #define ADDR_SINK_NODE    0x57
     #else
-        #define ADDR_SENSING_NODE 0xdd // <-- logic analyzer
+        #define ADDR_SENSING_NODE 0xdd
         #define ADDR_HOP1_A_NODE  0x2b
         #define ADDR_HOP1_B_NODE  0x0f
-        #define ADDR_HOP2_A_NODE  0x57 // <-- logic analyzer
-        #define ADDR_HOP2_B_NODE  0x16 // <-- logic analyzer
+        #define ADDR_HOP2_A_NODE  0x57
+        #define ADDR_HOP2_B_NODE  0x16
         #define ADDR_SINK_NODE    0x05
     #endif
-    #define PANID                 0xc0ca
 #else
     #define ADDR_SENSING_NODE     0xa0
     #define ADDR_SINK_NODE        0xab
-    #define PANID                 0xc01a
 #endif
 
-// light sensor
-#define LIGHT_SAMPLE_PERIOD       350  // @32kHz, 655=20.000ms
-#define ONE_HOP_LATENCY            42  // @32kHz,  42= 1.280ms
-#define BACKTRACK_TUNING           41  // measured
+#define PANID                     0xc0ca
 
-#ifdef LOCAL_SETUP
-    #define SENSING_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET 29+5 // turn on oscillator a little later than hop 1, so hop 1 could hear the packet
-    #define HOP1_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET    29   //  @32kHz, 29=864us 
-    #define HOP2_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET    52   //  @32kHz, 29=1.58ms
-#else
-    #define SENSING_RADIO_OSC_SCHEDULE_TO_TURNON_OFFSET 34   // should be the same with local setup
-#endif
+//=========================== defines =========================================
 
-#define LIGHT_THRESHOLD           400
-#define LIGHT_HYSTERESIS          100
+// timing
+#define RETRANSMIT_DELAY_TICKS    7                                            // 7@32768Hz = 2135us. For Glossy-type relaying. Between end of ACK and start of DATA frames.
+#define CALIBRATION_PERIOD_TICKS  (RETRANSMIT_DELAY_TICKS<<5)                  // Duration of a calibration period.
+#define BACKTRACK_TUNING          41                                           // fine-tuning the backtracking to synchronize sender and receiver. measured
 
-#define RETRANSMIT_DELAY_TICKS    7                             // 7@32768Hz = 2135us, between end of ACK and start of DATA
-#define CALIBRATION_PERIOD_TICKS  (RETRANSMIT_DELAY_TICKS<<5)   // RETRANSMIT_DELAY<<5
+// frequencies
+#define FREQUENCY_1 379                                                        // 359 = 2407 MHz
+#define FREQUENCY_2 379                                                        // 379 = 2427 MHz
+#define FREQUENCY_3 404                                                        // 404 = 2452 MHz
+#define FREQUENCY_4 429                                                        // 429 = 2477 MHz
 
-// txfifo dsn address (0x003)
-#define WRITE_TXFIFO_DSN_BYTE0    0x83    //(CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
-#define WRITE_TXFIFO_DSN_BYTE1    0x00    //((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
-
-// frame content
-#define FRAME_DATA_LEN            (2+1+2+2+2) // 2B FCF, 1B DSN, 2B dest panId, 2B dest address, 2B CRC
-#define FRAME_DATA_FCF0           0x61 // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
-#define FRAME_DATA_FCF1           0x18 // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
-#define FRAME_ACK_LEN             (2+1+2)     // 2B FCF, 1B DSN,                                 2B CRC (per CC2420 datasheet, Figure 23)
+// frame contents
+#define FRAME_DATA_LEN            (2+1+2+2+2)                                  // 2B FCF, 1B DSN, 2B dest panId, 2B dest address, 2B CRC
+#define FRAME_DATA_FCF0           0x61                                         // 0b0110 0001  |bit6: panId compressed|bit5: AR set|bit4: no frame pending|bit3: sec disable|bit0-2: frame type,data|
+#define FRAME_DATA_FCF1           0x18                                         // 0b0001 1000  |bit14-15: src addr is elided|bit12-13:frame version, may not useful|bit10-11:16-bit dest addr|
+#define FRAME_ACK_LEN             (2+1+2)                                      // 2B FCF, 1B DSN, 2B CRC (per CC2420 datasheet, Figure 23)
 #define FRAME_ACK_FCF0            0x02
 #define FRAME_ACK_FCF1            0x00
+
+// hard-coded commands to write the DSN byte in the TXFIFO
+#define WRITE_TXFIFO_DSN_BYTE0    0x83                                         // (CC2420_FLAG_RAM | (0x03 & 0x7F)): 0x03 is address byte 0
+#define WRITE_TXFIFO_DSN_BYTE1    0x00                                         // ((0x00 >> 1) & 0xC0) | CC2420_FLAG_RAM_WRITE: 0x00 is address byte 1
+
+// ADC light sensor settings
+#define ADC_LIGHT_THRESHOLD       400                                          // raw ADC reading. Threshold between light on/off
+#define ADC_LIGHT_HYSTERESIS      100                                          //
 
 // LEDs
 #define LED_LIGHT_INIT            P5DIR |=  0x40; // P5.6
@@ -84,42 +99,35 @@
 #define DEBUGPIN_RXFORME_HIGH     P2OUT |=  0x40;
 #define DEBUGPIN_RXFORME_LOW      P2OUT &= ~0x40;
 
-// frequencies
+//=========================== const ===========================================
 
-// (channel-11)*5+357
-#define FREQUENCY_1 379 // 359 = 2407 MHz
-#define FREQUENCY_2 379 // 379 = 2427 MHz
-#define FREQUENCY_3 404 // 404 = 2452 MHz
-#define FREQUENCY_4 429 // 429 = 2477 MHz
-
-//=========================== statics =========================================
+const uint16_t  backtracking[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 //=========================== variables =======================================
 
 typedef struct {
-    uint8_t             dataFrameTx[FRAME_DATA_LEN];
-    
-    uint8_t             myId;
+    uint8_t             current_seq;
+    // fsm
     uint8_t             fTurnOSCOffAtNextEndOfFrame;
+    // timing
+    uint16_t            retransmitDelaySubticks;
+    uint16_t            lastTimestamp;    
+    // addressing
+    uint8_t             myId;
+    uint8_t             my_addr;
+    uint8_t             cc2420_panid[2];
+    uint8_t             cc2420_shortaddr[2];
+    uint8_t             cc2420_longaddr[16];
+    uint16_t            hopping_sequence[16];
+    // adc
+    uint8_t             light_state;
+    uint16_t            light_reading;
 #ifdef UART_HOP
     uint8_t             fSomethingToPrint;
     uint8_t             dsnToPrint;
     uint8_t             bufferToPrint[5];
     uint8_t             nextIndexToPrint;
 #endif
-    uint8_t             my_addr;
-    uint8_t             current_seq;
-    uint16_t            retransmitDelaySubticks;
-    uint16_t            lastTimestamp;
-    
-    uint8_t             light_state;
-    uint16_t            light_reading;
-    
-    uint8_t             cc2420_shortadr[2];
-    uint8_t             cc2420_panid[2];
-    uint8_t             cc2420_ieeeadr[16];
-    uint16_t            hopping_sequence[16];
-    uint16_t            backtracking[16];
 } app_vars_t;
 
 app_vars_t app_vars;
@@ -141,6 +149,7 @@ int main(void) {
     volatile uint16_t   delay;
     cc2420_status_t     cc2420_status;
     uint16_t            dest;
+    uint8_t             dataFrameTx[FRAME_DATA_LEN];
     
     memset(&app_vars,0,sizeof(app_vars_t));
     memset(&eui64[0],0,8);
@@ -184,6 +193,7 @@ int main(void) {
 #endif
     
     //DO NOT EDIT DIRECTLY. Generated by backtracking.py script
+    /*
     app_vars.backtracking[0]    =    0; //       0us
     app_vars.backtracking[1]    =   10; //     320us
     app_vars.backtracking[2]    =   28; //     869us
@@ -200,6 +210,7 @@ int main(void) {
     app_vars.backtracking[13]   =  259; //    7922us
     app_vars.backtracking[14]   =  277; //    8471us
     app_vars.backtracking[15]   =  301; //    9189us
+    */
     
     //===== fire up board
     
@@ -265,10 +276,10 @@ int main(void) {
     app_vars.my_addr  = 0x11;
 #endif
     for (i=0;i<2;i++){
-        app_vars.cc2420_shortadr[i] = app_vars.my_addr;
+        app_vars.cc2420_shortaddr[i] = app_vars.my_addr;
     }
     for (i=0;i<8;i++){
-        app_vars.cc2420_ieeeadr[i]  = app_vars.my_addr;
+        app_vars.cc2420_longaddr[i]  = app_vars.my_addr;
     }
     app_vars.cc2420_panid[0]        = (uint8_t)((uint16_t)(PANID & 0x00ff)>>0);
     app_vars.cc2420_panid[1]        = (uint8_t)((uint16_t)(PANID & 0xff00)>>8);
@@ -322,7 +333,7 @@ int main(void) {
     TACCTL1        =  CCIE;
     // arm CCR2 (light sensor sampling)
     if (app_vars.myId==ADDR_SENSING_NODE){
-        TACCR2     =  TAR+LIGHT_SAMPLE_PERIOD;
+        TACCR2     =  TAR+SAMPLE_PERIOD;
         TACCTL2    =  CCIE;
     }
     
@@ -408,28 +419,28 @@ int main(void) {
     radio_oscillatorOn();
     
     // configure radio's identifiers
-    cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status, &app_vars.cc2420_shortadr[0], 2);
+    cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status, &app_vars.cc2420_shortaddr[0], 2);
     cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,    &cc2420_status, &app_vars.cc2420_panid[0],    2);
-    cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,  &cc2420_status, &app_vars.cc2420_ieeeadr[0],  8);
+    cc2420_spiWriteRam(CC2420_RAM_IEEEADR_ADDR,  &cc2420_status, &app_vars.cc2420_longaddr[0],  8);
     
     //==== create and load data frame
     
     // create
-    app_vars.dataFrameTx[0]       = FRAME_DATA_FCF0;                           // FCF
-    app_vars.dataFrameTx[1]       = FRAME_DATA_FCF1;                           //
-    app_vars.dataFrameTx[2]       = 0x00;                                      // DSN (to be overwritten)
-    app_vars.dataFrameTx[3]       = (uint8_t)((uint16_t)(PANID & 0x00ff)>>0);  // PANID
-    app_vars.dataFrameTx[4]       = (uint8_t)((uint16_t)(PANID & 0xff00)>>8);  //
+    dataFrameTx[0]       = FRAME_DATA_FCF0;                           // FCF
+    dataFrameTx[1]       = FRAME_DATA_FCF1;                           //
+    dataFrameTx[2]       = 0x00;                                      // DSN (to be overwritten)
+    dataFrameTx[3]       = (uint8_t)((uint16_t)(PANID & 0x00ff)>>0);  // PANID
+    dataFrameTx[4]       = (uint8_t)((uint16_t)(PANID & 0xff00)>>8);  //
 #ifdef LOCAL_SETUP
     dest                          = app_vars.my_addr+1;
 #else
     dest                          = app_vars.my_addr;
 #endif
-    app_vars.dataFrameTx[5]       = dest;                                      // dest
-    app_vars.dataFrameTx[6]       = dest;                                      //
+    dataFrameTx[5]       = dest;                                      // dest
+    dataFrameTx[6]       = dest;                                      //
     
     // load
-    radio_loadPacket(app_vars.dataFrameTx,FRAME_DATA_LEN);
+    radio_loadPacket(dataFrameTx,FRAME_DATA_LEN);
     
     //==== switch radio in RX mode
     radio_setFrequency(app_vars.hopping_sequence[app_vars.current_seq]); // all motes, when booted
@@ -488,7 +499,7 @@ void timera_ccr2_compare_cb(void) {
         app_vars.light_reading = adc_read_light();
         
         // detect light state switches
-        if (       app_vars.light_state==0 && (app_vars.light_reading >= (LIGHT_THRESHOLD + LIGHT_HYSTERESIS))) {
+        if (       app_vars.light_state==0 && (app_vars.light_reading >= (ADC_LIGHT_THRESHOLD + ADC_LIGHT_HYSTERESIS))) {
             // light was just turned on
             
             app_vars.light_state  = 1;
@@ -498,7 +509,7 @@ void timera_ccr2_compare_cb(void) {
 #ifdef ENABLE_LEDS
             LED_LIGHT_ON; // at sensing node
 #endif
-        } else if (app_vars.light_state==1  && (app_vars.light_reading <  (LIGHT_THRESHOLD - LIGHT_HYSTERESIS))) {
+        } else if (app_vars.light_state==1  && (app_vars.light_reading <  (ADC_LIGHT_THRESHOLD - ADC_LIGHT_HYSTERESIS))) {
             // light was just turned off
             
             app_vars.light_state  = 0;
@@ -559,7 +570,7 @@ void timera_ccr2_compare_cb(void) {
         app_vars.current_seq = (app_vars.current_seq+1)&0x0f; // at sensing node
         
         // re-arm TimerA CCR2 (same period)
-        TACCR2          =  TACCR2+LIGHT_SAMPLE_PERIOD;
+        TACCR2          =  TACCR2+SAMPLE_PERIOD;
         TACCTL2         =  CCIE;
     
     } else {
@@ -910,7 +921,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     
     // rearm Timer A CCR2 to wake up at next cycle
     newCompareValue          = timestamp_timerA;
-    newCompareValue         += LIGHT_SAMPLE_PERIOD;
+    newCompareValue         += SAMPLE_PERIOD;
     if (rxpkt_len==FRAME_ACK_LEN) {
         my_hop               = rx_hop+2;
     } else {
@@ -919,7 +930,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     if (my_hop>16) {
         my_hop               = 16;
     }
-    newCompareValue         -=  app_vars.backtracking[my_hop];
+    newCompareValue         -=  backtracking[my_hop];
     newCompareValue         -=  BACKTRACK_TUNING;
     
     TACCR2   =  newCompareValue;
