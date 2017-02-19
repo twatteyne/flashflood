@@ -178,7 +178,7 @@ ACK
 
 | pin  | name           | role      | description |
 |------|----------------|-----------|-------------|
-| P2.3 | `light`        | light pin | output pin on the sink node (possibly on all nodes) |
+| P2.3 | `light`        | lightpin  | output pin on the sink node (possibly on all nodes) |
 | P3.4 | `timerAisr`    | debugpin  | high during Timer A ISR |
 | P6.6 | `timerBisr`    | debugpin  | high during Timer B ISR |
 | P2.6 | `rxforme`      | debugpin  | toggle at beginning of calibration |
