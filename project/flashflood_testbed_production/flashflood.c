@@ -19,7 +19,6 @@ repository for additional information, including on #defines you can use.
 #include "eui64.h"
 #include "adc_sensor.h"
 #include "spi.h"
-#include "timer_b.h"
 
 //=========================== configurations ==================================
 /*
@@ -374,13 +373,29 @@ int main(void) {
     }
     
     // start timer
-    TACTL    =  TAIE+TACLR;    // interrupt when counter resets
-    TACTL   |=  MC_2+TASSEL_1; // continue mode, from ACLK
+    TACTL    =  TAIE+TACLR;                      // interrupt when counter resets
+    TACTL   |=  MC_2+TASSEL_1;                   // continue mode, from ACLK
     
     //===== Timer B
     
-    timer_b_init();
-    timer_b_setEndFrameCb(timer_b_cb_endFrame);
+    // radio's SFD pin connected to P4.1 (timer B capture CCR1)
+    P4DIR   &= ~0x02; // input
+    P4SEL   |=  0x02; // in CCI1a/B mode
+    
+    // radio FIFOP pin connected to P1.0
+    P1DIR   &= ~0x01; // input
+    
+    // CCR1 in capture mode
+    TBCCTL1  =  CM_3+SCS+CAP+CCIE;
+    TBCCR1   =  0;
+    
+    // CCR2 unused
+    TBCCTL2  =  0;
+    TBCCR2   =  0;
+    
+    // start timer
+    TBCTL    =  TBIE+TBCLR;                       // interrupt when counter resets
+    TBCTL   |=  MC_2+TBSSEL_2;                    // continue mode, clocked from SMCLK
     
     //===== enable global interrupt
     __bis_SR_register(GIE);
@@ -663,8 +678,7 @@ __interrupt void TIMERA1_ISR (void) {
 
 //=========================== Timer B =========================================
 
-// done receiving an end-of-frame signal
-void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
+void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local){
     // raw packet received
     uint8_t        rx_for_me;
     uint8_t        rxpkt_len;
@@ -866,7 +880,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
             // I relay in SW
             
             //===== arm Timer B, it will issue the TXON strobe
-            TBCCR2      = timestamp_timerB+app_vars.retransmitDelaySubticks;
+            TBCCR2      = tbr_local+app_vars.retransmitDelaySubticks;
             TBCCTL2     = CCIE;
             
             //===== prepare radio to relay
@@ -946,7 +960,7 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     app_vars.current_seq = (app_vars.current_seq+1)&0x0f;
     
     // re-arm Timer A CCR2 to wake up at next cycle
-    newCompareValue          = timestamp_timerA;
+    newCompareValue          = tar_local;
     newCompareValue         += SAMPLE_PERIOD;
     if (rxpkt_len==FRAME_ACK_LEN) {
         my_hop               = rx_hop+2;
@@ -960,6 +974,59 @@ void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB){
     newCompareValue         -=  BACKTRACK_TUNING;
     TACCR2                   =  newCompareValue;
     TACCTL2                  =  CCIE;
+}
+
+#pragma vector = TIMERB1_VECTOR
+__interrupt void TIMERB1_ISR (void) {
+    uint16_t tbiv_local;
+    uint16_t tar_local = TAR;
+    
+    tar_local  = TAR;
+    tbiv_local = TBIV;
+    
+    // debugpin
+    DEBUGPIN_TIMERB_HIGH;
+    
+    switch (tbiv_local) {
+        case 0x0002:
+            // CCR1 capture triggered (SFD pin toggled)
+           
+            if (TBCCTL1 & CCI) {
+                 // SFD pin went high
+                 
+                 // debugpin
+                 DEBUGPIN_SFD_HIGH;
+            } else {
+                 // SFD pin went low
+                 
+                 // debugpin
+                 DEBUGPIN_SFD_LOW;
+                 
+                 end_of_frame_handler(tar_local,TBCCR1);
+                 
+                 TBCCTL1 &= ~COV;
+                 TBCCTL1 &= ~CCIFG;
+            }
+            break;
+        case 0x0004:
+            // CCR2 compare fired
+       
+            // send TXON strobe
+            P4OUT     &= ~0x04;
+            U0TXBUF    =  CC2420_STXON;
+            while ((IFG1 & URXIFG0)==0);
+            IFG1      &= ~URXIFG0;
+            P4OUT     |=  0x04;
+
+            TBCCR2   =  0;
+            TBCCTL2 &= ~CCIE;
+            break;
+    }
+    
+    // debugpin
+    DEBUGPIN_TIMERB_LOW;
+    
+    __bic_SR_register_on_exit(CPUOFF);
 }
 
 //=========================== UART ============================================
