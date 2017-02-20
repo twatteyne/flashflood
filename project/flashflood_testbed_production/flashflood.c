@@ -19,7 +19,6 @@ repository for additional information, including on #defines you can use.
 #include "eui64.h"
 #include "adc_sensor.h"
 #include "spi.h"
-#include "timer_a.h"
 #include "timer_b.h"
 
 //=========================== configurations ==================================
