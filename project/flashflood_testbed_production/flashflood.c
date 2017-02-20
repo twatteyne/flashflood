@@ -83,6 +83,11 @@ The rest of this source code can be used untouched.
 #define ADC_LIGHT_THRESHOLD       400                           // raw ADC reading. Threshold between light on/off
 #define ADC_LIGHT_HYSTERESIS      100                           //
 
+// light pin
+#define LIGHTPIN_INIT             P2DIR |=  0x08; // P2.3
+#define LIGHTPIN_HIGH             P2OUT |=  0x08;
+#define LIGHTPIN_LOW              P2OUT &= ~0x08;
+
 // LEDs
 #ifdef ENABLE_LEDS
 #define LED_LIGHT_INIT            P5DIR |=  0x40; // P5.6
@@ -93,11 +98,6 @@ The rest of this source code can be used untouched.
 #define LED_LIGHT_ON              ;
 #define LED_LIGHT_OFF             ;
 #endif
-
-// light pin
-#define LIGHTPIN_INIT             P2DIR |=  0x08; // P2.3
-#define LIGHTPIN_HIGH             P2OUT |=  0x08;
-#define LIGHTPIN_LOW              P2OUT &= ~0x08;
 
 //debugpins
 #ifdef ENABLE_DEBUGPINS
@@ -226,8 +226,8 @@ app_vars_t app_vars;
 
 //=========================== prototypes ======================================
 
-void timera_ccr2_compare_cb(void);
-void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp);
+void start_active_period(void);
+void calibrate_subticks(uint16_t tbr_local);
 void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB);
 #ifdef UART_HOP
 void formatStringToPrint();
@@ -314,13 +314,8 @@ int main(void) {
     cc2420_panid[0]               = (uint8_t)((uint16_t)(PANID & 0x00ff)>>0);
     cc2420_panid[1]               = (uint8_t)((uint16_t)(PANID & 0xff00)>>8);
     
-    //===== initialize peripherals
+    //===== light pin
     
-    // LEDs
-    LED_LIGHT_INIT;
-    LED_LIGHT_OFF;
-    
-    // light pin
 #ifdef LIGHTPIN_ALLMOTES
     if (1) {
 #else
@@ -330,27 +325,40 @@ int main(void) {
         LIGHTPIN_LOW;
     }
     
-    // debugpins
+    //===== LEDs
+    
+    LED_LIGHT_INIT;
+    LED_LIGHT_OFF;
+    
+    //===== debugpins
+    
     DEBUGPIN_TIMERA_INIT;
     DEBUGPIN_TIMERB_INIT
     DEBUGPIN_RXFORME_INIT;
     DEBUGPIN_SFD_INIT
     DEBUGPIN_RADIO_INIT;
     
-    // Timer A
-    timer_a_init();
-    timer_a_setCompareCCR1andReturnTBRcb(timera_ccr1_compare_get_tbr_cb); // calibrate
-    timer_a_setCompareCCR2Cb(timera_ccr2_compare_cb); // trigger sensor reading
-    // arm CCR1 (calibration)
-    TACCR1         =  TAR+CALIBRATION_PERIOD_TICKS;
-    TACCTL1        =  CCIE;
-    // arm CCR2 (light sensor sampling)
+    //===== Timer A
+    
+    // set CCRA0 registers
+    TACCR0   =  0;
+    
+    // CCR1 (compare mode, triggers calibration)
+    TACCR1   =  TAR+CALIBRATION_PERIOD_TICKS;
+    TACCTL1  =  CCIE;
+    
+    // CCR2 (compre mode, triggers cycle)
     if (app_vars.my_board_identifier==ADDR_SENSING_NODE){
         TACCR2     =  TAR+SAMPLE_PERIOD;
         TACCTL2    =  CCIE;
     }
     
-    // Timer B
+    // start timer
+    TACTL    =  TAIE+TACLR;    // interrupt when counter resets
+    TACTL   |=  MC_2+TASSEL_1; // continue mode, from ACLK
+    
+    //===== Timer B
+    
     timer_b_init();
     timer_b_setEndFrameCb(timer_b_cb_endFrame);
 
@@ -476,28 +484,7 @@ int main(void) {
 
 //=========================== Timer A =========================================
 
-// subticks/tick calibration
-void timera_ccr1_compare_get_tbr_cb(uint16_t timestamp){
-    uint16_t temp;
-    
-    // calculate retransmitDelaySubticks
-    if (app_vars.lastTimestamp==0){
-        app_vars.retransmitDelaySubticks = 149*RETRANSMIT_DELAY_TICKS; // 149 4.8MHz ticks per 32kHz ticks
-    } else {
-        temp = timestamp-app_vars.lastTimestamp;
-        app_vars.retransmitDelaySubticks = (temp>>5); // subticks in RETRANSMIT_DELAY ticks
-    }
-    
-    // remember lastTimestamp
-    app_vars.lastTimestamp = timestamp;
-    
-    // re-arm TimerA for next calibration
-    TACCR1  =  TACCR1+CALIBRATION_PERIOD_TICKS;
-    TACCTL1 =  CCIE;
-}
-
-// sample light sensor for sensing node, start cycle for others
-void timera_ccr2_compare_cb(void) {
+void start_active_period(void) {
     uint8_t rxByte;  
     
     if (app_vars.my_board_identifier==ADDR_SENSING_NODE){
@@ -619,6 +606,56 @@ void timera_ccr2_compare_cb(void) {
         TACCR2   =  0;
         TACCTL2  =  ~CCIE;
     }
+}
+
+void calibrate_subticks(uint16_t tbr_local){
+    uint16_t temp;
+    
+    // calculate retransmitDelaySubticks
+    if (app_vars.lastTimestamp==0){
+        app_vars.retransmitDelaySubticks = 149*RETRANSMIT_DELAY_TICKS; // 149 4.8MHz ticks per 32kHz ticks
+    } else {
+        temp = tbr_local-app_vars.lastTimestamp;
+        app_vars.retransmitDelaySubticks = (temp>>5); // subticks in RETRANSMIT_DELAY ticks
+    }
+    
+    // remember lastTimestamp
+    app_vars.lastTimestamp = tbr_local;
+    
+    // re-arm TimerA for next calibration
+    TACCR1  =  TACCR1+CALIBRATION_PERIOD_TICKS;
+    TACCTL1 =  CCIE;
+}
+
+#pragma vector = TIMERA1_VECTOR
+__interrupt void TIMERA1_ISR (void) {
+    uint16_t   tbr_local;
+    uint16_t   taiv_local;
+    tbr_local  = TBR;
+    taiv_local = TAIV;
+    
+    // debug pin
+    DEBUGPIN_TIMERA_HIGH;
+    
+    // handle the event
+    switch(taiv_local) {
+        case 0x0002:
+            // CCR1 compare
+            calibrate_subticks(tbr_local);
+            break;
+        case 0x0004:
+            // CCR2 compare
+            start_active_period();
+            break;
+        case 0x000a:
+            // overflow
+            ;
+    }
+    
+    // debug pin
+    DEBUGPIN_TIMERA_LOW;
+    
+    __bic_SR_register_on_exit(CPUOFF);
 }
 
 //=========================== Timer B =========================================

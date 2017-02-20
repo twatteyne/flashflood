@@ -54,7 +54,7 @@ void radio_oscillatorOn(void) {
    }
 }
 
-void     radio_oscillatorOff(void){
+void radio_oscillatorOff(void){
    cc2420_spiStrobe(CC2420_SXOSCOFF, &radio_vars.radioStatusByte);
    while (radio_vars.radioStatusByte.xosc16m_stable==1) {
       cc2420_spiStrobe(CC2420_SNOP, &radio_vars.radioStatusByte);

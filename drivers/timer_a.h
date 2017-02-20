@@ -14,7 +14,6 @@ typedef void (*timer_a_capture_cbt)(uint16_t timestamp);
 
 //=========================== prototypes ======================================
 
-void               timer_a_init(void);
 void               timer_a_setOverflowCb(timer_a_cbt cb);
 void               timer_a_setCompareCCR2Cb(timer_a_cbt cb);
 void               timer_a_setCompareCCR1andReturnTBRcb(timer_a_capture_cbt cb);
