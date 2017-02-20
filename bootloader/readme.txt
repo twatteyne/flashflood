@@ -1,4 +1,9 @@
+Parallel bootloader for the TelosB platform 
 
-Connect Telosb to your USB port and execute:
+Connect your TelosB boards to a USB hub and execute:
 
-python bootload -i test_leds_xtal.ihex
+```
+python bootload -i 00std_leds_xtal_prog.ihex
+```
+
+ALL TelosB board whill be reprogrammed at the same time.
