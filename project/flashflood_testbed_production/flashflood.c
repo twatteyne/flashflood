@@ -338,6 +338,27 @@ int main(void) {
     DEBUGPIN_SFD_INIT
     DEBUGPIN_RADIO_INIT;
     
+    //===== UART
+    
+#ifdef UART_HOP
+    // 115200 baud, clocked from SMCLK
+    P3SEL     =  0xC0;                           // P3.6,7 = UART1TX/RX
+    ME2      |=  UTXE1 + URXE1;                  // enable UART1 TX/RX
+    UCTL1    |=  CHAR;                           // 8-bit character
+    UTCTL1   |=  SSEL1;                          // clocking from SMCLK
+    UBR01     =  41;                             // 4.8MHz/115200 - 41.66
+    UBR11     =  0x00;                           //
+    UMCTL1    =  0x4A;                           // modulation
+    UCTL1    &= ~SWRST;                          // clear UART1 reset bit
+    IE2      |=  UTXIE1;                         // enable UART1 TX interrupt
+#endif
+    
+    //===== ADC
+    
+    if (app_vars.my_board_identifier==ADDR_SENSING_NODE) {
+        adc_init();
+    }
+    
     //===== Timer A
     
     // set CCRA0 registers
@@ -361,27 +382,13 @@ int main(void) {
     
     timer_b_init();
     timer_b_setEndFrameCb(timer_b_cb_endFrame);
-
-    // UART    
-#ifdef UART_HOP
-    // 115200 baud, clocked from SMCLK
-    P3SEL     =  0xC0;                           // P3.6,7 = UART1TX/RX
-    ME2      |=  UTXE1 + URXE1;                  // enable UART1 TX/RX
-    UCTL1    |=  CHAR;                           // 8-bit character
-    UTCTL1   |=  SSEL1;                          // clocking from SMCLK
-    UBR01     =  41;                             // 4.8MHz/115200 - 41.66
-    UBR11     =  0x00;                           //
-    UMCTL1    =  0x4A;                           // modulation
-    UCTL1    &= ~SWRST;                          // clear UART1 reset bit
-    IE2      |=  UTXIE1;                         // enable UART1 TX interrupt
-#endif
     
-    // ADC
-    if (app_vars.my_board_identifier==ADDR_SENSING_NODE) {
-        adc_init();
-    }
+    //===== enable global interrupt
+    __bis_SR_register(GIE);
     
-    //==== switch radio on
+    //===== radio
+    
+    //=== switch on
     
     // SPI
     spi_init();
@@ -398,7 +405,7 @@ int main(void) {
     P4OUT |=  0x40;
     for (delay=0xffff;delay>0;delay--);
     
-    //==== configure radio
+    //=== configure
     
     // configure MDMCTRL0 register
     // 15:14 reserved             00
@@ -444,9 +451,6 @@ int main(void) {
     //                            2    a    5    6
     cc2420_spiWriteReg(CC2420_RXCTRL1_ADDR, &cc2420_status,0x2a56);
     
-    // enable global interrupt
-    __bis_SR_register(GIE);
-    
     // per datasheet Section 13.5, "the crystal oscillator must be running when accessing the RAM."
     DEBUGPIN_RADIO_HIGH;
     radio_oscillatorOn();
@@ -455,7 +459,7 @@ int main(void) {
     cc2420_spiWriteRam(CC2420_RAM_SHORTADR_ADDR, &cc2420_status, &cc2420_shortaddr[0], 2);
     cc2420_spiWriteRam(CC2420_RAM_PANID_ADDR,    &cc2420_status, &cc2420_panid[0],     2);
     
-    //==== create and load data frame
+    //=== load data frame
     // the data frame stays in the radio's TXFIFO and gets sent over and over
     // after having changed the DSN field directly in the TXFIFO
     
@@ -475,7 +479,7 @@ int main(void) {
     // load
     radio_loadPacket(dataFrameTx,FRAME_DATA_LEN);
     
-    //==== switch radio in RX mode
+    //=== switch on, RX mode
     radio_setFrequency(hopping_sequence[app_vars.current_seq]); // all motes, when booted
     radio_rxNow();
     
