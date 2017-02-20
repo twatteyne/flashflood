@@ -29,13 +29,7 @@
     <path>$WS_DIR$\ref_radiorx\ref_radiorx.ewp</path>
   </project>
   <project>
-    <path>$WS_DIR$\test_autoack_no_panid\test_autoack_no_panid.ewp</path>
-  </project>
-  <project>
     <path>$WS_DIR$\test_lightuart\test_lightuart.ewp</path>
-  </project>
-  <project>
-    <path>$WS_DIR$\test_radio_channelhop\test_radio_channelhop.ewp</path>
   </project>
   <batchBuild>
     <batchDefinition>

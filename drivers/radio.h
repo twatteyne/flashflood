@@ -1,7 +1,6 @@
 #ifndef __RADIO_H
 #define __RADIO_H
 
-#include "timer_a.h"
 #include "timer_b.h"
 
 //=========================== define ==========================================
