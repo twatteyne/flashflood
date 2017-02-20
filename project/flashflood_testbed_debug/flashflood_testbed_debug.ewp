@@ -1044,12 +1044,6 @@
     <file>
       <name>$PROJ_DIR$\..\..\drivers\spi.h</name>
     </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\drivers\timer_b.c</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\drivers\timer_b.h</name>
-    </file>
   </group>
   <file>
     <name>$PROJ_DIR$\..\flashflood_testbed_production\flashflood.c</name>

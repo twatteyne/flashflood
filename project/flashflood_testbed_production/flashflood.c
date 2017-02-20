@@ -22,13 +22,13 @@ repository for additional information, including on #defines you can use.
 
 //=========================== configurations ==================================
 /*
-This section contains configurations you can change to match your own setup.
+This section contains configurations you can change to match your setup.
 The rest of this source code can be used untouched.
 */
 
 #define SAMPLE_PERIOD             655  // @32kHz, 655=20ms. Period at which the sensing node senses and sends data.
 
-// mote addresses.
+// mote addresses
 #ifdef LOCAL_SETUP
     #ifdef LINEAR_TOPOLOGY
         #define ADDR_SENSING_NODE 0xdd
