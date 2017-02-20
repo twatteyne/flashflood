@@ -1,5 +1,5 @@
 /**
-\brief Cross-platform declaration "spi" bsp module.
+\brief SPI driver.
 
 \author Thomas Watteyne <watteyne@eecs.berkeley.edu>, February 2012.
 */
@@ -7,7 +7,7 @@
 #ifndef __SPI_H
 #define __SPI_H
 
-#include "stdint.h"
+#include <stdint.h>
 
 //=========================== define ==========================================
 

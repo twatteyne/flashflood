@@ -4,7 +4,6 @@
 \author Thomas Watteyne <watteyne@eecs.berkeley.edu>, February 2012.
 */
 
-#include "stdint.h"
 #include "cc2420.h"
 #include "spi.h"
 

@@ -4,10 +4,10 @@
 \author Thomas Watteyne <watteyne@eecs.berkeley.edu>, February 2012.
 */
 
-#include "stdint.h"
-
 #ifndef __CC2420_H
 #define __CC2420_H
+
+#include <stdint.h>
 
 //=========================== app-specific ====================================
 

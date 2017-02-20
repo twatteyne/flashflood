@@ -1,3 +1,9 @@
+/**
+\brief Driver which reads the value of an ADC channel.
+
+\author Thomas Watteyne <watteyne@eecs.berkeley.edu>, March 2012.
+*/
+
 #include "adc_sensor.h"
 
 //=========================== defines =========================================

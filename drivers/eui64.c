@@ -1,12 +1,12 @@
 /**
-\brief TelosB-specific definition of the "eui64" bsp module.
+\brief Driver which retrieves the board's EUI-64 identifier.
 
 \author Thomas Watteyne <watteyne@eecs.berkeley.edu>, March 2012.
 */
 
+#include "eui64.h"
 #include "msp430f1611.h"
 #include "string.h"
-#include "eui64.h"
 
 //=========================== defines =========================================
 

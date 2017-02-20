@@ -1,11 +1,11 @@
 /**
-\brief TelosB-specific definition of the "spi" bsp module.
+\brief SPI driver.
 
 \author Thomas Watteyne <watteyne@eecs.berkeley.edu>, February 2012.
 */
 
-#include "msp430f1611.h"
 #include "spi.h"
+#include "msp430f1611.h"
 #include "string.h"
 
 //=========================== defines =========================================

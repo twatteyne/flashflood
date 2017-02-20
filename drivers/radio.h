@@ -1,7 +1,13 @@
+/**
+\brief High-level radio driver.
+
+\author Thomas Watteyne <watteyne@eecs.berkeley.edu>, February 2012.
+*/
+
 #ifndef __RADIO_H
 #define __RADIO_H
 
-#include "stdint.h"
+#include <stdint.h>
 
 //=========================== define ==========================================
 

@@ -1,13 +1,11 @@
 /**
-\brief CC2420-specific definition of the "radio" bsp module.
+\brief High-level radio driver.
 
 \author Thomas Watteyne <watteyne@eecs.berkeley.edu>, February 2012.
 */
 
 #include "radio.h"
 #include "cc2420.h"
-#include "spi.h"
-#include "string.h"
 
 //=========================== defines =========================================
 

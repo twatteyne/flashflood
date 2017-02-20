@@ -226,7 +226,7 @@ app_vars_t app_vars;
 
 void start_active_period(void);
 void calibrate_subticks(uint16_t tbr_local);
-void timer_b_cb_endFrame(uint16_t timestamp_timerA, uint16_t timestamp_timerB);
+void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local);
 #ifdef UART_HOP
 void formatStringToPrint();
 #endif
@@ -502,7 +502,7 @@ int main(void) {
 
 //=========================== Timer A =========================================
 
-void start_active_period(void) {
+inline void start_active_period(void) {
     uint8_t rxByte;  
     
     if (app_vars.my_board_identifier==ADDR_SENSING_NODE){
@@ -626,7 +626,7 @@ void start_active_period(void) {
     }
 }
 
-void calibrate_subticks(uint16_t tbr_local){
+inline void calibrate_subticks(uint16_t tbr_local){
     uint16_t temp;
     
     // calculate retransmitDelaySubticks
@@ -678,7 +678,7 @@ __interrupt void TIMERA1_ISR (void) {
 
 //=========================== Timer B =========================================
 
-void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local){
+inline void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local){
     // raw packet received
     uint8_t        rx_for_me;
     uint8_t        rxpkt_len;
@@ -694,7 +694,6 @@ void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local){
     uint8_t        crcByte;
     uint8_t        i;
     uint8_t        my_hop;
-    //uint8_t        reg_FSCTRL_byte0;
     
     // determine when I've just receive a packet for me
     rx_for_me = (P1IN & 0x01);
@@ -875,6 +874,8 @@ void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local){
         }
 #endif
     } else {
+        // normal mote
+        
         if (rxpkt_len==FRAME_ACK_LEN){
             // normal mote, received ACK
             // I relay in SW
@@ -957,7 +958,7 @@ void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local){
     }
     
     // increment sequence number, ready for next active period
-    app_vars.current_seq = (app_vars.current_seq+1)&0x0f;
+    app_vars.current_seq     = (app_vars.current_seq+1)&0x0f;
     
     // re-arm Timer A CCR2 to wake up at next cycle
     newCompareValue          = tar_local;
@@ -979,7 +980,7 @@ void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local){
 #pragma vector = TIMERB1_VECTOR
 __interrupt void TIMERB1_ISR (void) {
     uint16_t tbiv_local;
-    uint16_t tar_local = TAR;
+    uint16_t tar_local;
     
     tar_local  = TAR;
     tbiv_local = TBIV;
