@@ -55,12 +55,12 @@ The rest of this source code can be used untouched.
 //=========================== defines =========================================
 
 // timing
-#define RETRANSMIT_DELAY_TICKS    7                             // 7@32768Hz = 2135us. For Glossy-type relaying. Between end of ACK and start of DATA frames.
+#define RETRANSMIT_DELAY_TICKS    7                             // 7@32768Hz = 213.5us. For Glossy-type relaying. Between end of ACK and start of DATA frames.
 #define CALIBRATION_PERIOD_TICKS  (RETRANSMIT_DELAY_TICKS<<5)   // Duration of a calibration period.
 #define BACKTRACK_TUNING          41                            // fine-tuning the backtracking to synchronize sender and receiver. measured
 
 // frequencies
-#define FREQUENCY_1 379                                         // 359 = 2407 MHz
+#define FREQUENCY_1 359                                         // 359 = 2407 MHz
 #define FREQUENCY_2 379                                         // 379 = 2427 MHz
 #define FREQUENCY_3 404                                         // 404 = 2452 MHz
 #define FREQUENCY_4 429                                         // 429 = 2477 MHz
@@ -218,6 +218,8 @@ typedef struct {
     uint8_t        uart_bufferToPrint[5];
     uint8_t        uart_nextIndexToPrint;
 #endif
+    uint8_t        timeraCCR1delayed;
+    uint8_t        resetTimeraLater;
 } app_vars_t;
 
 app_vars_t app_vars;
@@ -307,7 +309,7 @@ int main(void) {
 #else
     app_vars.my_network_addr      = 0x11;
 #endif
-    cc2420_shortaddr[1]           = 0x00;
+    cc2420_shortaddr[0]           = 0x00;
     cc2420_shortaddr[1]           = app_vars.my_network_addr;
     cc2420_panid[0]               = (uint8_t)((uint16_t)(PANID & 0x00ff)>>0);
     cc2420_panid[1]               = (uint8_t)((uint16_t)(PANID & 0xff00)>>8);
@@ -504,6 +506,7 @@ int main(void) {
 
 inline void start_active_period(void) {
     uint8_t rxByte;  
+    uint8_t reg_FSCTRL_byte0;
     
     if (app_vars.my_board_identifier==ADDR_SENSING_NODE){
         // I'm the sensing node: sample and send
@@ -562,6 +565,27 @@ inline void start_active_period(void) {
         while ((IFG1 & URXIFG0)==0);
         IFG1           &= ~URXIFG0;
         P4OUT          |=  0x04;
+        
+        do {
+              //>>>>> CS low
+              P4OUT  &= ~0x04;
+              
+              U0TXBUF = 0x58; // (CC2420_FLAG_READ | CC2420_FLAG_REG | CC2420_FSCTRL_ADDR )
+              while ((IFG1 & URXIFG0)==0);
+              IFG1   &= ~URXIFG0;
+              
+              U0TXBUF = 0x00;
+              while ((IFG1 & URXIFG0)==0);
+              IFG1   &= ~URXIFG0;
+              
+              reg_FSCTRL_byte0  = U0RXBUF;
+              
+              // no need to read second byte of FSCTRL
+              
+              //<<<<< CS high
+              P4OUT  |=  0x04;
+          
+          } while(reg_FSCTRL_byte0 & 0x10);
         
         // send TXON strobe 
         P4OUT          &= ~0x04;
@@ -633,8 +657,12 @@ inline void calibrate_subticks(uint16_t tbr_local){
     if (app_vars.lastTimestamp==0){
         app_vars.retransmitDelaySubticks = 149*RETRANSMIT_DELAY_TICKS; // 149 4.8MHz ticks per 32kHz ticks
     } else {
-        temp = tbr_local-app_vars.lastTimestamp;
-        app_vars.retransmitDelaySubticks = (temp>>5); // subticks in RETRANSMIT_DELAY ticks
+        if (app_vars.timeraCCR1delayed==0){
+            temp = tbr_local-app_vars.lastTimestamp;
+            app_vars.retransmitDelaySubticks = (temp>>5); // subticks in RETRANSMIT_DELAY ticks
+        } else {
+            app_vars.timeraCCR1delayed = 0;
+        }
     }
     
     // remember lastTimestamp
@@ -670,8 +698,17 @@ __interrupt void TIMERA1_ISR (void) {
             ;
     }
     
+    if (TBCCTL1 & CCI){
+        app_vars.resetTimeraLater = 1;
+    } else {
     // debug pin
     DEBUGPIN_TIMERA_LOW;
+    }
+    
+    // check timera CCR1 interrupt delayed or not
+    if (TACCTL1 & CCIFG){
+        app_vars.timeraCCR1delayed = 1;
+    }
     
     __bic_SR_register_on_exit(CPUOFF);
 }
@@ -694,6 +731,7 @@ inline void end_of_frame_handler(uint16_t tar_local, uint16_t tbr_local){
     uint8_t        crcByte;
     uint8_t        i;
     uint8_t        my_hop;
+    uint8_t        reg_FSCTRL_byte0;
     
     // determine when I've just receive a packet for me
     rx_for_me = (P1IN & 0x01);
@@ -1026,6 +1064,16 @@ __interrupt void TIMERB1_ISR (void) {
     
     // debugpin
     DEBUGPIN_TIMERB_LOW;
+    if (app_vars.resetTimeraLater == 1){
+    // debug pin
+    DEBUGPIN_TIMERA_LOW;
+    app_vars.resetTimeraLater = 0;
+    }
+    
+    // check timera CCR1 interrupt delayed or not
+    if (TACCTL1 & CCIFG){
+        app_vars.timeraCCR1delayed = 1;
+    }
     
     __bic_SR_register_on_exit(CPUOFF);
 }
