@@ -1,20 +1,6 @@
-* schedule: http://wsn-testbed.it.uu.se:5000/
-* real-time Grafana: http://wsn-testbed.it.uu.se:3000/dashboard/db/experiment-overview?from=now-1m&to=now
+Companion source code to the article:
 
-## most significant runs
-
-ours
-
-| run  | duration | energy         | reliability   | median latency |
-|------|----------|----------------|---------------|---------------:|
-|  605 |     300  | 722.801148071  |         19/70 |  6366.0        |
-|  558 |     300  | 720.823209152  |         34/70 |  5888.5        |
-
-competition
-
-| run  | duration | energy         | reliability   | median latency | team |
-|------|----------|----------------|---------------|----------------|------|
-|  548 |     150  | 356.910110386  |         34/34 | 16090.5        |    1 |
+Exploiting Constructive Interference in IEEE 802.15.4: Survey & Hands-on Tutorial. Tengfei Chang, Thomas Watteyne, Xavier Vilajosana, Pedro Henrique Gomes.
 
 ## setup
 
