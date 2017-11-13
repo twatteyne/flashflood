@@ -10,7 +10,9 @@ SERIALPORTMAP = {
     'COM5': '1B',
     'COM6': '2A',
     'COM7': '2B',
-    'COM8': 'sink',
+    'COM8': '3A',
+    'COM9': '3B',
+    'COM10':'sink',
 }
 
 def findSerialPorts():
@@ -86,7 +88,7 @@ def main():
     while True:
         command = raw_input('Press \'q\' to quit\n')
         if command=='q':
-            return
+        return
 
 # ==== start from here
 if __name__ == '__main__':

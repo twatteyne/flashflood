@@ -38,12 +38,55 @@ The rest of this source code can be used untouched.
         #define ADDR_HOP4_NODE    0x05
         #define ADDR_SINK_NODE    0x57
     #else
+// hop 4 latency setup
         #define ADDR_SENSING_NODE 0xdd
-        #define ADDR_HOP1_A_NODE  0x2b
-        #define ADDR_HOP1_B_NODE  0x0f
-        #define ADDR_HOP2_A_NODE  0x57
-        #define ADDR_HOP2_B_NODE  0x16
-        #define ADDR_SINK_NODE    0x05
+        #define ADDR_HOP1_A_NODE  0x05
+        #define ADDR_HOP1_B_NODE  0x0a
+        #define ADDR_HOP2_A_NODE  0xa3
+        #define ADDR_HOP2_B_NODE  0xb9
+        #define ADDR_HOP3_A_NODE  0x5e
+        #define ADDR_HOP3_B_NODE  0x16
+        #define ADDR_SINK_NODE    0x57
+
+//// hop 3 latency setup
+//        #define ADDR_SENSING_NODE 0xdd
+//        #define ADDR_HOP1_A_NODE  0x05
+//        #define ADDR_HOP1_B_NODE  0x0a
+//        #define ADDR_HOP2_A_NODE  0xa3
+//        #define ADDR_HOP2_B_NODE  0xb9
+//        #define ADDR_HOP3_A_NODE  0x57
+//        #define ADDR_HOP3_B_NODE  0xf9
+//        #define ADDR_SINK_NODE    0xc8
+
+//// hop 2 latency setup
+//        #define ADDR_SENSING_NODE 0xdd
+//        #define ADDR_HOP1_A_NODE  0x05
+//        #define ADDR_HOP1_B_NODE  0x0a
+//        #define ADDR_HOP2_A_NODE  0x57
+//        #define ADDR_HOP2_B_NODE  0xb9
+//        #define ADDR_HOP3_A_NODE  0xc8
+//        #define ADDR_HOP3_B_NODE  0xf9
+//        #define ADDR_SINK_NODE    0xa3
+
+//// hop 1 latency setup
+//        #define ADDR_SENSING_NODE 0xdd
+//        #define ADDR_HOP1_A_NODE  0x57
+//        #define ADDR_HOP1_B_NODE  0x0a
+//        #define ADDR_HOP2_A_NODE  0xa3
+//        #define ADDR_HOP2_B_NODE  0xb9
+//        #define ADDR_HOP3_A_NODE  0xc8
+//        #define ADDR_HOP3_B_NODE  0xf9
+//        #define ADDR_SINK_NODE    0x05
+
+//// timing offset setup
+//        #define ADDR_SENSING_NODE 0x05
+//        #define ADDR_HOP1_A_NODE  0xa3
+//        #define ADDR_HOP1_B_NODE  0xc8
+//        #define ADDR_HOP2_A_NODE  0xdd
+//        #define ADDR_HOP2_B_NODE  0x57
+//        #define ADDR_HOP3_A_NODE  0xf1
+//        #define ADDR_HOP3_B_NODE  0xf2
+//        #define ADDR_SINK_NODE    0xf3
     #endif
 #else
     #define ADDR_SENSING_NODE     0xa0
@@ -299,8 +342,12 @@ int main(void) {
             case ADDR_HOP2_B_NODE:
                 app_vars.my_network_addr  = 3;
                 break;
-            case ADDR_SINK_NODE:
+            case ADDR_HOP3_A_NODE:
+            case ADDR_HOP3_B_NODE:
                 app_vars.my_network_addr  = 4;
+                break;
+            case ADDR_SINK_NODE:
+                app_vars.my_network_addr  = 5;
                 break;
             default:
                 break;
@@ -566,6 +613,11 @@ inline void start_active_period(void) {
         IFG1           &= ~URXIFG0;
         P4OUT          |=  0x04;
         
+#ifdef UART_HOP
+        formatStringToPrint();
+        U1TXBUF = app_vars.uart_bufferToPrint[app_vars.uart_nextIndexToPrint];
+#endif
+        
         do {
               //>>>>> CS low
               P4OUT  &= ~0x04;
@@ -585,7 +637,7 @@ inline void start_active_period(void) {
               //<<<<< CS high
               P4OUT  |=  0x04;
           
-          } while(reg_FSCTRL_byte0 & 0x10);
+        } while(reg_FSCTRL_byte0 & 0x10);
         
         // send TXON strobe 
         P4OUT          &= ~0x04;
